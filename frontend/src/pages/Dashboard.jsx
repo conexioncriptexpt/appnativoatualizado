@@ -10,6 +10,9 @@ import {
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { createSocket } from "@/lib/socket";
+import { fmtTime } from "@/lib/datetime";
+import Logo from "@/components/Logo";
+import LisbonClock from "@/components/LisbonClock";
 
 const PLATFORM_ICON = { android: Smartphone, windows: Monitor, web: Globe };
 const STATUS_STYLE = {
@@ -78,7 +81,7 @@ export default function Dashboard() {
       }));
     });
     sock.on("session:assigned-to-you", ({ session_id }) => {
-      toast.success("Nova sessão atribuída a você!");
+      toast.success("Nova sessão atribuída a si!");
       refresh();
     });
     sock.on("rtc:offer", async ({ sdp }) => {
@@ -100,7 +103,7 @@ export default function Dashboard() {
     sock.on("a11y:tree", ({ tree }) => setTree(tree || []));
     sock.on("device:disconnected", ({ session_id }) => {
       if (activeRef.current?.id === session_id) {
-        toast.info("O usuário encerrou a sessão.");
+        toast.info("O utilizador terminou a sessão.");
         setRtcState("ended");
       }
       refresh();
@@ -175,17 +178,15 @@ export default function Dashboard() {
       {/* Top bar */}
       <header className="h-16 border-b border-gray-800 bg-[#111827] flex items-center justify-between px-5 sticky top-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-indigo-500 flex items-center justify-center text-white">
-            <MonitorSmartphone size={20} />
-          </div>
-          <div>
-            <div className="font-display font-bold text-white leading-none">Crypto Conex CRM</div>
-            <div className="text-[11px] text-gray-500 font-mono">
-              {isAdmin ? "SUPER ADMIN" : "TÉCNICO"} · {user?.name}
-            </div>
-          </div>
+          <Logo size={40} dark />
+          <span className="hidden md:inline text-[11px] text-gray-500 font-mono border-l border-gray-700 pl-3">
+            {isAdmin ? "SUPER ADMIN" : "TÉCNICO"} · {user?.name}
+          </span>
         </div>
         <div className="flex items-center gap-4">
+          <div className="hidden lg:block">
+            <LisbonClock dark />
+          </div>
           {stats && (
             <div className="hidden md:flex items-center gap-4 text-xs font-mono">
               <Stat label="FILA" value={stats.waiting} color="text-amber-400" />
@@ -470,7 +471,7 @@ export default function Dashboard() {
                 ) : (
                   logs.map((l, i) => (
                     <div key={i} className="px-2 py-1.5 rounded bg-[#0B0F17] border border-gray-800">
-                      <span className="text-gray-600">{new Date(l.timestamp).toLocaleTimeString()}</span>{" "}
+                      <span className="text-gray-600">{fmtTime(new Date(l.timestamp))}</span>{" "}
                       <span className="text-indigo-300">{l.type}</span>
                       {l.payload?.command && <span className="text-sky-300"> · {l.payload.command.type}</span>}
                     </div>

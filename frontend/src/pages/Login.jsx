@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { ShieldCheck, Loader2, LogIn, MonitorSmartphone } from "lucide-react";
+import { ShieldCheck, Loader2, LogIn } from "lucide-react";
 import api, { formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
+import LisbonClock from "@/components/LisbonClock";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -30,16 +32,9 @@ export default function Login() {
   return (
     <div className="min-h-screen operator-bg flex items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="h-12 w-12 rounded-2xl bg-indigo-500 flex items-center justify-center text-white">
-            <MonitorSmartphone size={26} />
-          </div>
-          <div>
-            <div className="font-display font-extrabold text-2xl text-white tracking-tight leading-none">
-              Crypto Conex
-            </div>
-            <div className="text-sm text-gray-400 font-mono">Painel de Gestão · CRM</div>
-          </div>
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <Logo size={48} dark />
+          <LisbonClock dark />
         </div>
 
         <form
@@ -47,8 +42,8 @@ export default function Login() {
           className="bg-[#111827] border border-gray-800 rounded-2xl p-7 flex flex-col gap-5"
         >
           <div>
-            <h1 className="font-display text-xl font-bold text-white">Acesso da equipe técnica</h1>
-            <p className="text-sm text-gray-400 mt-1">Entre com suas credenciais.</p>
+            <h1 className="font-display text-xl font-bold text-white">Acesso da equipa técnica</h1>
+            <p className="text-sm text-gray-400 mt-1">Introduza as suas credenciais.</p>
           </div>
 
           <div>
@@ -94,7 +89,7 @@ export default function Login() {
 
         <div className="text-center mt-5">
           <a href="/" className="text-sm text-gray-500 hover:text-gray-300 underline" data-testid="back-to-public-link">
-            ← Voltar à página de conexão
+            ← Voltar à página de ligação
           </a>
         </div>
       </div>

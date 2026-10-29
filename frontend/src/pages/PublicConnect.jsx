@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
-  MonitorSmartphone, ShieldCheck, Download, Wifi, WifiOff,
-  Loader2, CheckCircle2, Plus, Minus, Volume2, Apple,
+  ShieldCheck, Download, Wifi, WifiOff, Loader2, CheckCircle2,
+  Plus, Minus, Volume2,
 } from "lucide-react";
 import { createSocket } from "@/lib/socket";
+import { detectOS } from "@/lib/datetime";
+import Logo from "@/components/Logo";
+import LisbonClock from "@/components/LisbonClock";
 
 const DEVICE_KEY = "cc_device_id";
 function getDeviceId() {
@@ -17,12 +20,21 @@ function getDeviceId() {
   return id;
 }
 
+const OS_LABEL = {
+  android: "Instalar Aplicação Android",
+  windows: "Instalar Aplicação Windows",
+  ios: "Instalar Aplicação",
+  mac: "Instalar Aplicação",
+  other: "Instalar Aplicação",
+};
+
 export default function PublicConnect() {
   const [status, setStatus] = useState("idle"); // idle | connecting | connected | error
   const [sessionId, setSessionId] = useState(null);
   const [pin, setPin] = useState(null);
   const [fontScale, setFontScale] = useState(1);
   const [online, setOnline] = useState(false);
+  const os = useRef(detectOS()).current;
 
   const socketRef = useRef(null);
   const pcRef = useRef(null);
@@ -30,6 +42,8 @@ export default function PublicConnect() {
   const iceBuffer = useRef([]);
   const remoteSet = useRef(false);
   const iceServersRef = useRef([]);
+  const sessionIdRef = useRef(null);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
   // Scale the <html> root font-size so Tailwind rem-based text actually grows.
   useEffect(() => {
@@ -40,7 +54,7 @@ export default function PublicConnect() {
   const speak = useCallback((text) => {
     try {
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = "pt-BR";
+      u.lang = "pt-PT";
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     } catch (e) {}
@@ -48,7 +62,7 @@ export default function PublicConnect() {
 
   const cleanup = useCallback(() => {
     if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
-    if (pcRef.current) pcRef.current.close();
+    if (pcRef.current) { try { pcRef.current.close(); } catch (e) {} }
     if (socketRef.current) socketRef.current.disconnect();
     streamRef.current = null;
     pcRef.current = null;
@@ -59,7 +73,7 @@ export default function PublicConnect() {
 
   useEffect(() => cleanup, [cleanup]);
 
-  // Build a FRESH peer connection each time an operator joins (supports re-open / operator switch).
+  // Build a FRESH peer connection whenever an operator joins (re-open / troca de técnico).
   const startStreamToOperator = useCallback(async () => {
     if (!streamRef.current || !socketRef.current) return;
     const sid = sessionIdRef.current;
@@ -80,16 +94,15 @@ export default function PublicConnect() {
   const handleConnect = async () => {
     if (status === "connecting" || status === "connected") return;
     setStatus("connecting");
-    speak("Iniciando conexão. Por favor, confirme o compartilhamento da sua tela.");
+    speak("A iniciar a ligação. Por favor, confirme a partilha do seu ecrã.");
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: 15 },
         audio: false,
       });
       streamRef.current = stream;
-      // if user stops sharing from the browser bar
       stream.getVideoTracks()[0].addEventListener("ended", () => {
-        toast.info("Compartilhamento encerrado.");
+        toast.info("Partilha de ecrã terminada.");
         cleanup();
         setStatus("idle");
         setSessionId(null);
@@ -99,14 +112,14 @@ export default function PublicConnect() {
       const sock = createSocket();
       socketRef.current = sock;
 
-      sock.on("connect", () => {
-        setOnline(true);
+      const register = () =>
         sock.emit("device:register", {
           device_id: getDeviceId(),
           platform: "web",
           name: "Navegador (" + (navigator.platform || "PC") + ")",
         });
-      });
+
+      sock.on("connect", () => { setOnline(true); register(); });
       sock.on("disconnect", () => setOnline(false));
 
       sock.on("device:registered", ({ session_id, pin: p, iceServers }) => {
@@ -115,14 +128,13 @@ export default function PublicConnect() {
         setPin(p);
         setStatus("connected");
         iceServersRef.current = iceServers || [];
-        speak("Conectado. Um técnico irá ajudá-lo em instantes.");
+        speak("Ligado. Um técnico irá ajudá-lo dentro de instantes.");
       });
 
-      // operator joined the room -> (re)build peer and send a fresh offer
       sock.on("operator:joined", async () => {
         await startStreamToOperator();
-        toast.success("Técnico conectado à sua tela.");
-        speak("Técnico conectado. Ele já pode ver a sua tela para ajudá-lo.");
+        toast.success("Técnico ligado ao seu ecrã.");
+        speak("O técnico já consegue ver o seu ecrã para o ajudar.");
       });
 
       sock.on("rtc:answer", async ({ sdp }) => {
@@ -144,7 +156,6 @@ export default function PublicConnect() {
       });
 
       sock.on("command:receive", ({ command }) => {
-        // On a browser we cannot inject OS events; show the guidance to the user.
         if (command?.type === "message") {
           toast.message("Mensagem do técnico", { description: command.text });
           speak(command.text);
@@ -153,27 +164,24 @@ export default function PublicConnect() {
     } catch (e) {
       console.error(e);
       setStatus("error");
-      toast.error("Não foi possível iniciar o compartilhamento de tela.");
+      toast.error("Não foi possível iniciar a partilha de ecrã.");
       speak("Não foi possível iniciar. Tente novamente.");
     }
   };
-
-  // keep latest sessionId available inside socket callbacks
-  const sessionIdRef = useRef(null);
-  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
 
   const disconnect = () => {
     cleanup();
     setStatus("idle");
     setSessionId(null);
     setPin(null);
-    toast.info("Sessão encerrada.");
+    toast.info("Sessão terminada.");
   };
 
-  const downloadInfo = (plat) => {
-    toast.message(`Aplicativo ${plat}`, {
+  const installApp = () => {
+    const sys = os === "android" ? "Android" : os === "windows" ? "Windows" : "Android / Windows";
+    toast.message(`Aplicação ${sys}`, {
       description:
-        "O instalador nativo estará disponível no repositório GitHub do projeto. O código-fonte completo já acompanha esta entrega.",
+        "O instalador nativo ficará disponível no repositório GitHub do projeto. O código-fonte completo acompanha esta entrega.",
       duration: 6000,
     });
   };
@@ -182,15 +190,10 @@ export default function PublicConnect() {
     <div className="min-h-screen bg-[#FAFAFD] text-[#0F172A] flex flex-col">
       {/* Header */}
       <header className="w-full border-b-2 border-slate-900/10 bg-white">
-        <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-[#0D5C75] flex items-center justify-center text-white">
-              <MonitorSmartphone size={24} />
-            </div>
-            <div>
-              <div className="font-display font-extrabold text-xl tracking-tight leading-none">Crypto Conex</div>
-              <div className="text-sm text-[#475569]">Suporte Assistido</div>
-            </div>
+        <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between gap-3">
+          <Logo size={44} />
+          <div className="hidden sm:block">
+            <LisbonClock />
           </div>
           <div className="flex items-center gap-2" data-testid="accessibility-controls">
             <button
@@ -210,7 +213,7 @@ export default function PublicConnect() {
               <Plus size={20} />
             </button>
             <button
-              onClick={() => speak("Para pedir ajuda, toque no grande botão azul escrito Conectar, no centro da tela.")}
+              onClick={() => speak("Para pedir ajuda, carregue no grande botão azul escrito Conectar, no centro do ecrã.")}
               className="h-11 w-11 rounded-xl border-2 border-slate-900 flex items-center justify-center hover:bg-slate-100 transition-colors"
               aria-label="Ouvir instruções"
               data-testid="voice-help-button"
@@ -218,6 +221,9 @@ export default function PublicConnect() {
               <Volume2 size={20} />
             </button>
           </div>
+        </div>
+        <div className="sm:hidden max-w-5xl mx-auto px-5 pb-3">
+          <LisbonClock />
         </div>
       </header>
 
@@ -233,17 +239,17 @@ export default function PublicConnect() {
             data-testid="connection-status-banner"
           >
             {status === "connected" ? <CheckCircle2 size={20} /> : online ? <Wifi size={20} /> : <WifiOff size={20} />}
-            {status === "idle" && "Pronto para conectar"}
-            {status === "connecting" && "Conectando…"}
-            {status === "connected" && "Conectado — aguardando técnico"}
-            {status === "error" && "Falha ao conectar"}
+            {status === "idle" && "Pronto para ligar"}
+            {status === "connecting" && "A ligar…"}
+            {status === "connected" && "Ligado — à espera do técnico"}
+            {status === "error" && "Falha na ligação"}
           </div>
 
           <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">
             Precisa de ajuda no seu computador?
           </h1>
           <p className="text-xl text-[#475569] leading-snug">
-            Toque no botão abaixo. Um técnico verá a sua tela e vai guiá-lo passo a passo.
+            Carregue no botão abaixo. Um técnico vê o seu ecrã e orienta-o passo a passo.
           </p>
 
           {status !== "connected" ? (
@@ -256,7 +262,7 @@ export default function PublicConnect() {
             >
               {status === "connecting" ? (
                 <>
-                  <Loader2 className="animate-spin" size={36} /> Conectando…
+                  <Loader2 className="animate-spin" size={36} /> A ligar…
                 </>
               ) : (
                 <>
@@ -272,46 +278,37 @@ export default function PublicConnect() {
                   className="font-mono text-5xl font-bold tracking-[0.3em] text-emerald-900 cursor-pointer"
                   onClick={() => { navigator.clipboard?.writeText(pin); toast.success("Código copiado"); }}
                   data-testid="session-pin"
-                  title="Clique para copiar"
+                  title="Carregue para copiar"
                 >
                   {pin}
                 </div>
-                <div className="text-base text-emerald-700 mt-2">Informe este código ao técnico, se solicitado.</div>
+                <div className="text-base text-emerald-700 mt-2">Indique este código ao técnico, se lhe for pedido.</div>
               </div>
               <button
                 onClick={disconnect}
                 data-testid="public-disconnect-button"
                 className="w-full max-w-md h-16 rounded-2xl border-2 border-red-600 text-red-700 text-lg font-bold hover:bg-red-50 transition-colors"
               >
-                Encerrar sessão
+                Terminar sessão
               </button>
             </div>
           )}
 
-          {/* Download native apps */}
+          {/* Install native app (single button for the detected system) */}
           <div className="w-full pt-4 border-t-2 border-slate-200 mt-2">
-            <div className="text-base font-bold text-[#475569] mb-3">Ou instale o aplicativo assistente</div>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => downloadInfo("Windows")}
-                data-testid="download-app-windows-button"
-                className="h-16 w-full rounded-2xl border-2 border-slate-900 bg-white text-slate-900 text-lg font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-colors"
-              >
-                <Download size={22} /> Baixar App — Windows
-              </button>
-              <button
-                onClick={() => downloadInfo("Android")}
-                data-testid="download-app-android-button"
-                className="h-16 w-full rounded-2xl border-2 border-slate-900 bg-white text-slate-900 text-lg font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-colors"
-              >
-                <Apple size={22} className="hidden" /> <Download size={22} /> Baixar App — Android
-              </button>
-            </div>
+            <div className="text-base font-bold text-[#475569] mb-3">Ou instale a aplicação assistente</div>
+            <button
+              onClick={installApp}
+              data-testid="install-app-button"
+              className="h-16 w-full rounded-2xl border-2 border-slate-900 bg-white text-slate-900 text-lg font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-colors"
+            >
+              <Download size={22} /> {OS_LABEL[os]}
+            </button>
           </div>
 
           <div className="flex items-center gap-2 text-sm text-[#475569] mt-2">
             <ShieldCheck size={18} className="text-[#0D5C75]" />
-            Conexão protegida. Você pode encerrar a qualquer momento.
+            Ligação protegida. Pode terminar a qualquer momento.
           </div>
         </div>
       </main>
@@ -319,7 +316,7 @@ export default function PublicConnect() {
       <footer className="text-center py-4 text-sm text-slate-400">
         Crypto Conex · Assistência Digital Inclusiva ·{" "}
         <a href="/login" className="underline hover:text-slate-600" data-testid="crm-access-link">
-          Acesso da equipe técnica
+          Acesso da equipa técnica
         </a>
       </footer>
     </div>

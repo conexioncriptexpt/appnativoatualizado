@@ -10,13 +10,13 @@ namespace CryptoConex.PC
     /// </summary>
     public class SignalingClient
     {
-        private readonly SocketIO _socket;
+        private readonly SocketIOClient.SocketIO _socket;
         public event Action<Command> OnCommand;
         private string _sessionId;
 
         public SignalingClient(string backendUrl)
         {
-            _socket = new SocketIO(backendUrl, new SocketIOOptions
+            _socket = new SocketIOClient.SocketIO(backendUrl, new SocketIOClient.SocketIOOptions
             {
                 Path = "/api/socketio",
                 Transport = SocketIOClient.Transport.TransportProtocol.WebSocket,

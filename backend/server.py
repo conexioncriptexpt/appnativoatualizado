@@ -99,7 +99,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Token inválido")
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
-        raise HTTPException(status_code=401, detail="Usuário não encontrado")
+        raise HTTPException(status_code=401, detail="Utilizador não encontrado")
     return user
 
 
@@ -119,7 +119,7 @@ async def register(data: RegisterInput, user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Apenas o Super Admin pode criar contas")
     email = data.email.lower()
     if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="E-mail já cadastrado")
+        raise HTTPException(status_code=400, detail="E-mail já registado")
     role = data.role if data.role in ("admin", "technician") else "technician"
     doc = {
         "id": str(uuid.uuid4()),
@@ -193,6 +193,9 @@ async def update_user(user_id: str, data: UserUpdateInput, user=Depends(get_curr
         updates["password_hash"] = hash_password(data.password)
     if updates:
         await db.users.update_one({"id": user_id}, {"$set": updates})
+    if "role" in updates and updates["role"] != target["role"]:
+        for osid in list(ONLINE_OPERATORS.get(user_id, set())):
+            await sio.disconnect(osid)  # force reconnect so socket permissions refresh
     return await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
 
 
@@ -272,6 +275,11 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
     await db.sessions.create_index("id", unique=True)
+    # socket registries are in memory: sessions still open from a previous run have no device
+    await db.sessions.update_many(
+        {"status": {"$in": ["waiting", "assigned", "active"]}},
+        {"$set": {"status": "ended", "ended_at": now_iso()}},
+    )
     existing = await db.users.find_one({"email": ADMIN_EMAIL.lower()})
     if not existing:
         await db.users.insert_one({

@@ -118,7 +118,9 @@ export default function Instructions() {
         <DownloadBox os={os} />
 
         <ol className="space-y-4" data-testid="instructions-steps">
-          {guide.steps.map((s, i) => (
+          {guide.steps.map((s0, i) => {
+            const s = i === 0 && !DOWNLOADS[os] ? { t: s0.t, d: "Peça ao técnico o ficheiro de instalação, ou volte a esta página mais tarde." } : s0;
+            return (
             <li key={`${os}-${i}`} className="flex gap-4 rounded-2xl border-2 border-slate-200 bg-white p-5">
               <div className="h-12 w-12 shrink-0 rounded-full bg-slate-900 text-white text-2xl font-extrabold flex items-center justify-center">{i + 1}</div>
               <div className="flex-1">
@@ -134,7 +136,8 @@ export default function Instructions() {
                 <Volume2 size={22} />
               </button>
             </li>
-          ))}
+            );
+          })}
         </ol>
 
         <div className="rounded-2xl bg-slate-900 text-white p-6 text-lg">

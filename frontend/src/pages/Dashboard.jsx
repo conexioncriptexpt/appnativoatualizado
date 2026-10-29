@@ -83,6 +83,7 @@ export default function Dashboard() {
         assigned: sessions.filter((s) => s.status === "assigned").length,
       }));
     });
+    sock.on("operator:ready", () => refresh());
     sock.on("session:assigned-to-you", ({ session_id }) => {
       toast.success("Nova sessão atribuída a si!");
       refresh();

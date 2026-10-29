@@ -34,6 +34,8 @@ export default function PublicConnect() {
   const [pin, setPin] = useState(null);
   const [fontScale, setFontScale] = useState(1);
   const [online, setOnline] = useState(false);
+  const [techWatching, setTechWatching] = useState(false);
+  useEffect(() => { if (status !== "connected") setTechWatching(false); }, [status]);
   const os = useRef(detectOS()).current;
 
   const socketRef = useRef(null);
@@ -133,6 +135,7 @@ export default function PublicConnect() {
 
       sock.on("operator:joined", async () => {
         await startStreamToOperator();
+        setTechWatching(true);
         toast.success("Técnico ligado ao seu ecrã.");
         speak("O técnico já consegue ver o seu ecrã para o ajudar.");
       });
@@ -236,7 +239,7 @@ export default function PublicConnect() {
             {status === "connected" ? <CheckCircle2 size={20} /> : online ? <Wifi size={20} /> : <WifiOff size={20} />}
             {status === "idle" && "Pronto para ligar"}
             {status === "connecting" && "A ligar…"}
-            {status === "connected" && "Ligado — à espera do técnico"}
+            {status === "connected" && (techWatching ? "Técnico a ver o seu ecrã" : "Ligado — à espera do técnico")}
             {status === "error" && "Falha na ligação"}
           </div>
 

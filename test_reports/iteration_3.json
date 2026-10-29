@@ -1,0 +1,44 @@
+{
+  "summary": "Tested Team Management (backend and UI), the /instrucoes page, the install button redirect, and ran a regression smoke on the CRM dashboard and the public CONECTAR WebRTC flow. Backend: 36/36 pytest pass (17 new team tests plus 19 regression tests). Covered: GET /api/users (admin only; technician gets 403; no password_hash; online flag), register (technician and admin; duplicate gives 400; technician gets 403), PUT (role, name and password; old password then fails and new one works; cannot demote self; invalid role gives 400; short password gives 422; unknown id gives 404), DELETE (cannot delete self; unknown id gives 404; deleted user's token gets 401 on /me; their assigned session goes back to waiting; their live socket is dropped; reconnecting with their token is rejected). Frontend: admin sees the Equipa link; technician does not, and /crm/equipa redirects a technician to /crm. Create, duplicate-email error toast, role change, reset password (Guardar disabled below 6 characters; new password logs in), delete with confirm dialog, and back button all work. Own row has role select and delete disabled. /instrucoes: Android and Windows tabs switch the steps, the download-unavailable notice shows, 6 speak buttons are present, and Voltar goes to /. An Android user agent redirects to /instrucoes?os=android; a Linux user agent goes to /instrucoes. WebRTC regression, using a faked getDisplayMedia from a canvas stream: the session appears in the queue, the operator clicks it, video plays at 480x270, and the dashboard shows AO VIVO.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup / socket registry", "issue": "Session 'TEST_Native_Android' has been stuck at status 'active' since 14:49 with no device connected. Socket registries are in memory, and the backend restarted (hot reload) while the device was connected, so the disconnect handler never ran. The CRM shows the session as 'AO VIVO' forever. Fix: on startup, set sessions with status waiting/assigned/active to 'ended' (or add a last_activity timeout sweep)."},
+      {"endpoint": "PUT /api/users/{id} (role change)", "issue": "OPERATOR_SIDS keeps the role cached from connect time. A user demoted from admin to technician keeps admin powers in socket events (for example session:assign to others) until they reconnect. Disconnect their sockets on role change, as DELETE already does."},
+      {"endpoint": "PUT /api/users/{id}", "issue": "Changing the password does not invalidate existing JWTs (12h expiry). Acceptable for an MVP; consider adding a token version."},
+      {"endpoint": "pt-PT copy", "issue": "Some backend messages are pt-BR: 'E-mail já cadastrado' (pt-PT: 'E-mail já registado') and 'Usuário não encontrado' (pt-PT: 'Utilizador não encontrado')."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Dashboard header stat ONLINE", "issue": "Shows 0 while the admin is connected over the socket. /api/stats is fetched before the socket connects and is not refreshed when the queue updates.", "selector": "header Stat ONLINE", "priority": "LOW"},
+      {"component": "Team page online dot", "issue": "The current admin's own row shows offline because the Dashboard socket disconnects when navigating to /crm/equipa.", "selector": "[data-testid=team-member-admin@cryptoconex.com]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/instrucoes", "issues": ["Step 1 says 'Carregue/Clique no botão azul acima', but no download button is shown while URLs are not configured. The copy should adapt when the download-unavailable notice is shown."]},
+      {"screen": "/crm/equipa", "issues": ["Sonner toasts at top-right cover the header 'Painel' back button area"]},
+      {"screen": "/ public page", "issues": ["Status text stays 'Ligado — à espera do técnico' after the operator joined and WebRTC video is streaming; it could switch to something like 'Técnico a ver o seu ecrã'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_team_management.py", "/app/backend/tests/test_cryptoconex_api.py", "/app/test_reports/pytest/pytest_iter3.xml"],
+  "action_items": [
+    "On backend startup, end orphaned waiting/assigned/active sessions (TEST_Native_Android is stuck as AO VIVO)",
+    "Disconnect a user's operator sockets on role change, or re-check the role from the DB in socket handlers",
+    "Refresh the ONLINE stat after the socket connects or on queue:update",
+    "Fix the pt-BR wording in backend error messages",
+    "Adjust the /instrucoes step 1 copy when no download URL is configured"
+  ],
+  "critical_code_review_comments": [
+    "server.py update_user: if data.name: with a whitespace-only name saves an empty string after strip(); validate a non-empty name",
+    "Last-admin checks use count_documents and are not atomic; a race is possible but unlikely",
+    "Team.jsx errMsg relies on detail?.[0]?.msg falling back for string details; it works but is fragile"
+  ],
+  "updated_files": ["/app/backend/tests/test_team_management.py"],
+  "success_rate": {"backend": "100%", "frontend": "100% of requested flows (minor UX issues only)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026, tech1@cryptoconex.com / Tech@1234 (both unchanged)",
+  "seed_data_creation": "Throwaway test_*@cryptoconex.com accounts were created and then deleted. Two web sessions were created and ended. tec.teste@cryptoconex.com existed already and was not created by this run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend/tests && python -m pytest test_team_management.py test_cryptoconex_api.py -n 0 (pytest.ini adds xdist flags; use -n 0). Socket path is 'api/socketio'. For the WebRTC UI test, stub navigator.mediaDevices.getDisplayMedia with canvas.captureStream via add_init_script. Queue items use data-testid=queue-session-item."
+}

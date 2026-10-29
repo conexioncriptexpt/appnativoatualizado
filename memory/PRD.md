@@ -44,3 +44,22 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - HIGH: `max_http_buffer_size=16MB` (frames >1MB já não desligam o dispositivo); frames Windows com escala ≤1280px, q45, ~12fps.
 - Segurança socket: só o dispositivo dono envia screen:packet/a11y:tree; guards para data nulo; marcação "active" sem escrita por frame.
 - Verificado: testing_agent 37/37; teste direto frame 1,6MB OK + bloqueio de estranhos OK.
+
+## Iteração 3 (2026-10-29 · Equipa + Instruções + WebRTC nativo)
+- Gestão de Equipa `/crm/equipa` (só Administrador): criar conta (Técnico/Administrador), mudar tipo,
+  redefinir palavra-passe, remover. Proteções: não se remove/despromove a si; tem de existir ≥1 admin.
+  Remover → sessões voltam à fila + sockets desligados; mudar tipo → sockets desligados (permissões atualizadas).
+  API: `GET /api/users`, `PUT /api/users/{id}`, `DELETE /api/users/{id}`.
+- Página `/instrucoes` (Android/Windows, passos numerados com voz). Botão "Instalar" da página pública leva para lá.
+  Links de download via `REACT_APP_DOWNLOAD_ANDROID_URL` / `REACT_APP_DOWNLOAD_WINDOWS_URL` (ainda por definir).
+- WebRTC nativo: Android (`io.getstream:stream-webrtc-android:1.3.10`, ScreenCapturerAndroid, H.264/VP8 HW) e
+  Windows (SIPSorcery 8.0.23 + VP8 libvpx) enviam oferta ao receber `operator:joined`; fallback JPEG por Socket.io
+  enquanto o WebRTC não liga. Windows compilado localmente com sucesso; Kotlin do Android compilado com kotlinc.
+- Workflows publicam em GitHub Releases (`android-latest` / `windows-latest`) para links estáveis.
+- Startup: sessões abertas de execuções anteriores são marcadas "ended". Testado: iteration_3 (36/36 backend, UI 100%).
+
+## Backlog
+- P1: Definir URLs de download (após "Save to GitHub" → Releases) nas variáveis de ambiente.
+- P1: URL do backend nas apps nativas aponta para o preview; mudar para o domínio de produção após deploy.
+- P2: Um PeerConnection por operador (vários técnicos em simultâneo), invalidar JWT ao mudar palavra-passe,
+  gravação de sessão, notas do técnico.

@@ -71,6 +71,7 @@ namespace CryptoConex.PC
 
                     OnFrame?.Invoke(frame);
                     duplication.ReleaseFrame();
+                    Thread.Sleep(80); // ~12 fps cap
                 }
                 catch (SharpDXException) { /* timeout de frame — ignora */ }
             }

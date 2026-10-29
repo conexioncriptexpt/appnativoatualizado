@@ -1,0 +1,33 @@
+{
+  "summary": "Backend-only regression of the native-app Socket.io contract, run against the external REACT_APP_BACKEND_URL (path api/socketio, websocket and polling). 37/37 pytest pass: 18 new native-contract tests plus 19 regression tests from iteration 1. Verified: admin login and /me; sessions/stats/technicians return 200 with auth and 401 without; device:register gives device:registered {session_id, 6-digit pin, iceServers}; the operator gets queue:update with the waiting android session; operator:subscribe sets the session to active and sends operator:joined to the device; screen:packet is relayed as screen:frame with data unchanged (6 frames, JPEG header checked); command:send gives command:receive with the identical command; the command is logged in /api/sessions/{id}/logs; screen:packet alone sets a windows session to active; device disconnect sets status ended. Event names and payloads in SignalingClient.cs and SocketManager.kt match the server. New defect found: frames larger than ~1 MB disconnect the device.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "socket.io screen:packet", "issue": "A screen:packet message over 1 MB (python-engineio default max_http_buffer_size=1,000,000) is dropped and the device socket is disconnected, which ends the session. Measured: an 800 KB base64 frame was relayed; a 1.6 MB base64 frame disconnected the device. High-resolution or high-quality JPEG frames from Windows/Android can exceed this.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "socket.io screen:packet / a11y:tree / rtc:*", "issue": "No check that the sender owns the session. Any unauthenticated socket can push frames into any session_id and set its status to active. Also, data=None raises AttributeError (data.get)."},
+      {"endpoint": "native clients", "issue": "Android sendScreenPacket emits session_id=null before device:registered arrives (Windows guards this). Both clients call device:register on every connect, so each reconnect creates a new session and PIN and the operator loses the session. SocketManager.kt hardcodes BACKEND_URL."},
+      {"endpoint": "carry-over from iteration_1", "issue": "No brute-force lockout, no httpOnly cookie, CORS '*', TURN creds hardcoded, ADMIN_PASSWORD default 'admin123'. None of this changed."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_native_contract.py", "/app/backend/tests/test_cryptoconex_api.py", "/app/test_reports/pytest/pytest_results_iter2.xml"],
+  "action_items": [
+    "Raise the Socket.IO message limit: socketio.AsyncServer(..., max_http_buffer_size=8_000_000) or larger. Also cap or compress frame size/quality in the native agents (e.g. scale to <=1280px, JPEG q60).",
+    "Validate that screen:packet / a11y:tree / rtc:* senders belong to the session (DEVICE_SIDS[sid] == session_id, or an operator allowed by _can_operate). Guard against data being None.",
+    "Native: only send frames after session_id is set (Android). Consider re-registering with the same session on reconnect."
+  ],
+  "critical_code_review_comments": [
+    "server.py:227 AsyncServer uses the default 1 MB message limit, which is too small for raw base64 JPEG frames.",
+    "server.py:426-431 screen_packet writes to the DB (update_one) on every frame. At 10-30 fps this means many Mongo writes per session; throttle last_activity/status updates.",
+    "server.py: operator_subscribe returns silently when not authorized; no error event is sent to the client."
+  ],
+  "updated_files": ["/app/backend/tests/test_native_contract.py"],
+  "success_rate": {"backend": "100% (37/37 tests); 1 extra defect found outside the suite (frames >1 MB)", "frontend": "not tested (backend only requested)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026; tech1@cryptoconex.com / Tech@1234",
+  "seed_data_creation": "TEST_native_*, TEST_win, TEST_poll and TEST_big device sessions (all ended or disconnected) in sessions/logs.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend/tests && pytest test_native_contract.py test_cryptoconex_api.py -n 0 -v. To check the size limit after the fix, emit screen:packet with a payload of about 1.6 MB base64 and confirm the operator gets screen:frame and the device stays connected.",
+  "rca of the issue": "Large-frame disconnect: python-engineio rejects packets over max_http_buffer_size (default 1e6 bytes) and closes the transport. The device disconnect handler then marks the session as ended. Fix: set max_http_buffer_size on AsyncServer."
+}

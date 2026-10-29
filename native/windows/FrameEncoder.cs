@@ -24,11 +24,26 @@ namespace CryptoConex.PC
             }
             bmp.UnlockBits(bmpData);
 
+            // Downscale to keep each frame comfortably small for the Socket.io channel.
+            const int maxWidth = 1280;
+            Bitmap toEncode = bmp;
+            Bitmap scaled = null;
+            if (width > maxWidth)
+            {
+                int newH = (int)(height * (maxWidth / (double)width));
+                scaled = new Bitmap(maxWidth, newH);
+                using var g = Graphics.FromImage(scaled);
+                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+                g.DrawImage(bmp, 0, 0, maxWidth, newH);
+                toEncode = scaled;
+            }
+
             using var ms = new MemoryStream();
             var encoder = ImageCodecInfo.GetImageEncoders()[1]; // JPEG
             var ep = new EncoderParameters(1);
-            ep.Param[0] = new EncoderParameter(Encoder.Quality, 55L);
-            bmp.Save(ms, encoder, ep);
+            ep.Param[0] = new EncoderParameter(Encoder.Quality, 45L);
+            toEncode.Save(ms, encoder, ep);
+            scaled?.Dispose();
             return ms.ToArray();
         }
     }

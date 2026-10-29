@@ -224,12 +224,20 @@ async def shutdown():
 
 
 # ================================================================== Socket.IO
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*", logger=False, engineio_logger=False)
+sio = socketio.AsyncServer(
+    async_mode="asgi",
+    cors_allowed_origins="*",
+    logger=False,
+    engineio_logger=False,
+    max_http_buffer_size=16_000_000,  # allow large base64 JPEG screen frames from native agents
+    ping_timeout=30,
+)
 
 # in-memory registries
 DEVICE_SIDS = {}       # sid -> session_id (device/end-user connections)
 OPERATOR_SIDS = {}     # sid -> user dict (CRM operators)
 ONLINE_OPERATORS = {}  # user_id -> set of sids
+SESSIONS_ACTIVE = set()  # session_ids already marked active (avoids a DB write per frame)
 
 
 def room(session_id: str) -> str:
@@ -286,6 +294,7 @@ async def disconnect(sid):
         return
     if sid in DEVICE_SIDS:
         session_id = DEVICE_SIDS.pop(sid)
+        SESSIONS_ACTIVE.discard(session_id)
         await db.sessions.update_one(
             {"id": session_id}, {"$set": {"status": "ended", "ended_at": now_iso()}}
         )
@@ -380,20 +389,23 @@ async def operator_unsubscribe(sid, data):
 # ---- WebRTC signaling relay (bi-directional within the session room) -----
 @sio.on("rtc:offer")
 async def rtc_offer(sid, data):
-    session_id = data.get("session_id")
-    await sio.emit("rtc:offer", data, room=room(session_id), skip_sid=sid)
+    if not data or not data.get("session_id"):
+        return
+    await sio.emit("rtc:offer", data, room=room(data["session_id"]), skip_sid=sid)
 
 
 @sio.on("rtc:answer")
 async def rtc_answer(sid, data):
-    session_id = data.get("session_id")
-    await sio.emit("rtc:answer", data, room=room(session_id), skip_sid=sid)
+    if not data or not data.get("session_id"):
+        return
+    await sio.emit("rtc:answer", data, room=room(data["session_id"]), skip_sid=sid)
 
 
 @sio.on("rtc:ice")
 async def rtc_ice(sid, data):
-    session_id = data.get("session_id")
-    await sio.emit("rtc:ice", data, room=room(session_id), skip_sid=sid)
+    if not data or not data.get("session_id"):
+        return
+    await sio.emit("rtc:ice", data, room=room(data["session_id"]), skip_sid=sid)
 
 
 # ---- Remote interaction + accessibility ----------------------------------
@@ -412,22 +424,37 @@ async def command_send(sid, data):
 @sio.on("a11y:tree")
 async def a11y_tree(sid, data):
     """Device pushes its accessibility node hierarchy for the operator to read."""
+    if not data:
+        return
     session_id = data.get("session_id")
+    if not session_id or DEVICE_SIDS.get(sid) != session_id:
+        return
     await sio.emit("a11y:tree", data, room=room(session_id), skip_sid=sid)
-    await log_event(session_id, "a11y_tree", {"nodes": len((data or {}).get("tree", []))})
+    await log_event(session_id, "a11y_tree", {"nodes": len(data.get("tree", []))})
 
 
 @sio.on("a11y:request")
 async def a11y_request(sid, data):
+    if not data:
+        return
     session_id = data.get("session_id")
+    if not session_id:
+        return
     await sio.emit("a11y:request", data, room=room(session_id), skip_sid=sid)
 
 
 @sio.on("screen:packet")
 async def screen_packet(sid, data):
     """Native agents (Android/Windows) push JPEG screen frames; relay to operators in the room."""
+    if not data:
+        return
     session_id = data.get("session_id")
-    await db.sessions.update_one({"id": session_id}, {"$set": {"status": "active", "last_activity": now_iso()}})
+    if not session_id or DEVICE_SIDS.get(sid) != session_id:
+        return  # only the owning device may push frames
+    if session_id not in SESSIONS_ACTIVE:
+        SESSIONS_ACTIVE.add(session_id)
+        await db.sessions.update_one({"id": session_id}, {"$set": {"status": "active", "last_activity": now_iso()}})
+        await broadcast_queue()
     await sio.emit("screen:frame", data, room=room(session_id), skip_sid=sid)
 
 

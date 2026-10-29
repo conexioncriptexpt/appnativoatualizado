@@ -37,3 +37,10 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - P2: Brute-force lockout no login; origens CORS explícitas em produção.
 - P2: Gravação de sessão, histórico persistente navegável, notas do técnico.
 - P2: Build e publicação dos instaladores nativos (APK / EXE) + botões de download apontando a eles.
+
+## Correções (2026-10-29 · CI + streaming nativo)
+- Android Actions: removido pacote obsoleto `tools`; instala platform-tools/android-34/build-tools;34.0.0.
+- Windows: `SocketIO` totalmente qualificado (`SocketIOClient.SocketIO`) — corrige CS0118.
+- HIGH: `max_http_buffer_size=16MB` (frames >1MB já não desligam o dispositivo); frames Windows com escala ≤1280px, q45, ~12fps.
+- Segurança socket: só o dispositivo dono envia screen:packet/a11y:tree; guards para data nulo; marcação "active" sem escrita por frame.
+- Verificado: testing_agent 37/37; teste direto frame 1,6MB OK + bloqueio de estranhos OK.

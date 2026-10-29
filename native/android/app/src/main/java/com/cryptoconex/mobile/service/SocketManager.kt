@@ -12,7 +12,7 @@ import java.net.URI
  */
 object SocketManager {
 
-    private const val BACKEND_URL = "https://SEU-BACKEND.preview.emergentagent.com"
+    private const val BACKEND_URL = "https://conex-assist--9u92ii2p.preview.emergentagent.com"
     private var socket: Socket? = null
     var sessionId: String? = null
         private set

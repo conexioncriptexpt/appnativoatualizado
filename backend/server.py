@@ -423,5 +423,13 @@ async def a11y_request(sid, data):
     await sio.emit("a11y:request", data, room=room(session_id), skip_sid=sid)
 
 
+@sio.on("screen:packet")
+async def screen_packet(sid, data):
+    """Native agents (Android/Windows) push JPEG screen frames; relay to operators in the room."""
+    session_id = data.get("session_id")
+    await db.sessions.update_one({"id": session_id}, {"$set": {"status": "active", "last_activity": now_iso()}})
+    await sio.emit("screen:frame", data, room=room(session_id), skip_sid=sid)
+
+
 # ================================================================== ASGI app
 app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app, socketio_path="api/socketio")

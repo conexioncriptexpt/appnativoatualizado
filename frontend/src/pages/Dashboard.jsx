@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [msg, setMsg] = useState("");
   const [typeText, setTypeText] = useState("");
   const [rtcState, setRtcState] = useState("idle");
+  const [frameSrc, setFrameSrc] = useState(null); // native (Android/Windows) JPEG frames
 
   const socketRef = useRef(null);
   const pcRef = useRef(null);
@@ -101,6 +102,12 @@ export default function Dashboard() {
       else iceBuffer.current.push(candidate);
     });
     sock.on("a11y:tree", ({ tree }) => setTree(tree || []));
+    sock.on("screen:frame", (d) => {
+      if (activeRef.current && d.session_id === activeRef.current.id && d.data) {
+        setFrameSrc("data:image/jpeg;base64," + d.data);
+        setRtcState("live");
+      }
+    });
     sock.on("device:disconnected", ({ session_id }) => {
       if (activeRef.current?.id === session_id) {
         toast.info("O utilizador terminou a sessão.");
@@ -119,6 +126,7 @@ export default function Dashboard() {
     remoteSet.current = false;
     iceBuffer.current = [];
     if (videoRef.current) videoRef.current.srcObject = null;
+    setFrameSrc(null);
   };
 
   const openSession = async (session) => {
@@ -321,6 +329,14 @@ export default function Dashboard() {
               className="w-full h-full object-contain"
               data-testid="crm-webrtc-stream-canvas"
             />
+            {frameSrc && (
+              <img
+                src={frameSrc}
+                alt="Ecrã do utilizador"
+                className="absolute inset-0 w-full h-full object-contain"
+                data-testid="native-frame-view"
+              />
+            )}
             {rtcState !== "live" && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-3 pointer-events-none">
                 <CircleDot size={48} className={rtcState === "connecting" ? "animate-pulse text-amber-500" : ""} />

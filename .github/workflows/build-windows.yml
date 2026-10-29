@@ -1,0 +1,34 @@
+name: Build Windows EXE
+
+on:
+  push:
+    paths:
+      - "native/windows/**"
+      - ".github/workflows/build-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: native/windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Publish single-file EXE
+        run: dotnet publish CryptoConexPC.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o publish
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: CryptoConex-Windows-EXE
+          path: native/windows/publish/CryptoConexPC.exe

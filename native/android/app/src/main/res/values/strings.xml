@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Crypto Conex</string>
+    <string name="accessibility_description">O Crypto Conex usa a acessibilidade para ler os botões do ecrã e executar toques em seu nome, permitindo que um técnico o ajude à distância.</string>
+</resources>

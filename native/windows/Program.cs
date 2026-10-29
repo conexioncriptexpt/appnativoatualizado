@@ -30,7 +30,7 @@ namespace CryptoConex.PC
 
         public TrayAppContext()
         {
-            _client = new SignalingClient("https://SEU-BACKEND.preview.emergentagent.com");
+            _client = new SignalingClient("https://conex-assist--9u92ii2p.preview.emergentagent.com");
             _capture = new ScreenCapture();
 
             var menu = new ContextMenuStrip();

@@ -3,15 +3,18 @@ package com.cryptoconex.mobile.service
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
-import android.media.MediaCodec
-import android.media.MediaCodecInfo
-import android.media.MediaFormat
+import android.media.Image
+import android.media.ImageReader
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.net.wifi.WifiManager
 import android.os.Build
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.PowerManager
 import android.util.Base64
@@ -19,21 +22,25 @@ import android.util.DisplayMetrics
 import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
-import java.nio.ByteBuffer
+import java.io.ByteArrayOutputStream
 
 /**
  * Foreground Service responsável por:
  *  - Manter a sessão viva (WakeLock + WifiLock) contra otimizações de bateria.
- *  - Capturar a tela com MediaProjection e codificar em H.264 via MediaCodec,
- *    enviando os pacotes ao servidor (baixa latência).
+ *  - Capturar o ecrã com MediaProjection + ImageReader e enviar frames JPEG (renderáveis
+ *    diretamente no navegador do técnico) com baixa latência via Socket.io.
  */
 class SupportForegroundService : Service() {
 
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
-    private var codec: MediaCodec? = null
+    private var imageReader: ImageReader? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var handlerThread: HandlerThread? = null
+    private var lastSent = 0L
+    private val targetFps = 8
+    private val scale = 0.6
 
     companion object {
         const val CHANNEL_ID = "crypto_conex_support"
@@ -53,7 +60,7 @@ class SupportForegroundService : Service() {
         val data = intent.getParcelableExtra<Intent>(EXTRA_RESULT_DATA) ?: return START_NOT_STICKY
         val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         projection = mpm.getMediaProjection(resultCode, data)
-        startScreenEncoding()
+        startCapture()
         return START_STICKY
     }
 
@@ -64,59 +71,57 @@ class SupportForegroundService : Service() {
         wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "CryptoConex:Wifi").apply { acquire() }
     }
 
-    private fun startScreenEncoding() {
+    private fun startCapture() {
         val metrics = DisplayMetrics()
         (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
-        val width = metrics.widthPixels / 2 * 2
-        val height = metrics.heightPixels / 2 * 2
+        val width = (metrics.widthPixels * scale).toInt() / 2 * 2
+        val height = (metrics.heightPixels * scale).toInt() / 2 * 2
 
-        val format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height).apply {
-            setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
-            setInteger(MediaFormat.KEY_BIT_RATE, 3_000_000)
-            setInteger(MediaFormat.KEY_FRAME_RATE, 25)
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2)
-        }
-        codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC).apply {
-            configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        }
-        val surface = codec!!.createInputSurface()
-        codec!!.start()
+        handlerThread = HandlerThread("ScreenCapture").apply { start() }
+        val handler = Handler(handlerThread!!.looper)
+
+        imageReader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        imageReader!!.setOnImageAvailableListener({ reader ->
+            val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+            try {
+                val now = System.currentTimeMillis()
+                if (now - lastSent >= 1000L / targetFps && SocketManager.sessionId != null) {
+                    lastSent = now
+                    sendFrame(image, width, height)
+                }
+            } finally {
+                image.close()
+            }
+        }, handler)
 
         virtualDisplay = projection!!.createVirtualDisplay(
             "CryptoConexScreen", width, height, metrics.densityDpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, surface, null, null
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, imageReader!!.surface, null, handler
         )
-        drainEncoder()
     }
 
-    private fun drainEncoder() {
-        Thread {
-            val info = MediaCodec.BufferInfo()
-            while (codec != null) {
-                val outIndex = codec!!.dequeueOutputBuffer(info, 10_000)
-                if (outIndex >= 0) {
-                    val buffer: ByteBuffer? = codec!!.getOutputBuffer(outIndex)
-                    buffer?.let {
-                        val bytes = ByteArray(info.size)
-                        it.get(bytes)
-                        val packet = JSONObject().apply {
-                            put("type", "frame")
-                            put("flags", info.flags)
-                            put("pts", info.presentationTimeUs)
-                            put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
-                        }
-                        SocketManager.sendScreenPacket(packet)
-                    }
-                    codec!!.releaseOutputBuffer(outIndex, false)
-                }
-            }
-        }.start()
+    private fun sendFrame(image: Image, width: Int, height: Int) {
+        val plane = image.planes[0]
+        val rowStride = plane.rowStride
+        val pixelStride = plane.pixelStride
+        val rowPadding = rowStride - pixelStride * width
+        val bmp = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888)
+        bmp.copyPixelsFromBuffer(plane.buffer)
+        val cropped = Bitmap.createBitmap(bmp, 0, 0, width, height)
+        bmp.recycle()
+
+        val out = ByteArrayOutputStream()
+        cropped.compress(Bitmap.CompressFormat.JPEG, 50, out)
+        cropped.recycle()
+        val b64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+
+        SocketManager.sendScreenPacket(JSONObject().apply { put("data", b64) })
     }
 
     private fun buildNotification(): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Crypto Conex — Suporte ativo")
-            .setContentText("Um técnico pode estar ajudando você agora.")
+            .setContentText("Um técnico pode estar a ajudá-lo agora.")
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true)
             .build()
@@ -132,7 +137,8 @@ class SupportForegroundService : Service() {
         wakeLock?.let { if (it.isHeld) it.release() }
         wifiLock?.let { if (it.isHeld) it.release() }
         virtualDisplay?.release()
-        codec?.stop(); codec?.release(); codec = null
+        imageReader?.close()
+        handlerThread?.quitSafely()
         projection?.stop()
         super.onDestroy()
     }

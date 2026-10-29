@@ -4,9 +4,11 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import PublicConnect from "@/pages/PublicConnect";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
+import Team from "@/pages/Team";
+import Instructions from "@/pages/Instructions";
 import "@/App.css";
 
-function Protected({ children }) {
+function Protected({ children, adminOnly }) {
   const { user } = useAuth();
   if (user === null)
     return (
@@ -15,6 +17,7 @@ function Protected({ children }) {
       </div>
     );
   if (!user) return <Navigate to="/login" replace />;
+  if (adminOnly && user.role !== "admin") return <Navigate to="/crm" replace />;
   return children;
 }
 
@@ -32,6 +35,15 @@ function App() {
               element={
                 <Protected>
                   <Dashboard />
+                </Protected>
+              }
+            />
+            <Route path="/instrucoes" element={<Instructions />} />
+            <Route
+              path="/crm/equipa"
+              element={
+                <Protected adminOnly>
+                  <Team />
                 </Protected>
               }
             />

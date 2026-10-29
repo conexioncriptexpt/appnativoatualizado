@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MonitorSmartphone, LogOut, Users, Radio, Clock, Smartphone, Monitor, Globe,
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const videoRef = useRef(null);
   const iceBuffer = useRef([]);
   const remoteSet = useRef(false);
+  const rtcLive = useRef(false);
   const activeRef = useRef(null);
   useEffect(() => { activeRef.current = active; }, [active]);
 
@@ -103,7 +105,7 @@ export default function Dashboard() {
     });
     sock.on("a11y:tree", ({ tree }) => setTree(tree || []));
     sock.on("screen:frame", (d) => {
-      if (activeRef.current && d.session_id === activeRef.current.id && d.data) {
+      if (activeRef.current && d.session_id === activeRef.current.id && d.data && !rtcLive.current) {
         setFrameSrc("data:image/jpeg;base64," + d.data);
         setRtcState("live");
       }
@@ -124,6 +126,7 @@ export default function Dashboard() {
     if (pcRef.current) pcRef.current.close();
     pcRef.current = null;
     remoteSet.current = false;
+    rtcLive.current = false;
     iceBuffer.current = [];
     if (videoRef.current) videoRef.current.srcObject = null;
     setFrameSrc(null);
@@ -140,8 +143,13 @@ export default function Dashboard() {
       const pc = new RTCPeerConnection({ iceServers: data.iceServers });
       pcRef.current = pc;
       pc.ontrack = (e) => {
-        if (videoRef.current) videoRef.current.srcObject = e.streams[0];
+        if (videoRef.current) videoRef.current.srcObject = e.streams[0] || new MediaStream([e.track]);
+        rtcLive.current = true;
+        setFrameSrc(null);
         setRtcState("live");
+      };
+      pc.onconnectionstatechange = () => {
+        if (["failed", "disconnected", "closed"].includes(pc.connectionState)) rtcLive.current = false;
       };
       pc.onicecandidate = (e) => {
         if (e.candidate) socketRef.current.emit("rtc:ice", { session_id: session.id, candidate: e.candidate });
@@ -201,6 +209,15 @@ export default function Dashboard() {
               <Stat label="ATIVAS" value={stats.active} color="text-emerald-400" />
               <Stat label="ONLINE" value={stats.online_operators} color="text-indigo-300" />
             </div>
+          )}
+          {isAdmin && (
+            <Link
+              to="/crm/equipa"
+              data-testid="team-management-link"
+              className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors"
+            >
+              <Users size={16} /> Equipa
+            </Link>
           )}
           <button
             onClick={refresh}

@@ -27,10 +27,12 @@ namespace CryptoConex.PC
         private readonly NotifyIcon _tray;
         private readonly SignalingClient _client;
         private readonly ScreenCapture _capture;
+        private readonly WebRtcStreamer _rtc = new WebRtcStreamer();
+        private DateTime _lastJpeg = DateTime.MinValue;
 
         public TrayAppContext()
         {
-            _client = new SignalingClient("https://conex-assist--9u92ii2p.preview.emergentagent.com");
+            _client = new SignalingClient("https://crypto-conex--6nq9iiht.preview.emergentagent.com");
             _capture = new ScreenCapture();
 
             var menu = new ContextMenuStrip();
@@ -49,8 +51,25 @@ namespace CryptoConex.PC
 
             // Comandos recebidos do técnico -> injeção de mouse/teclado
             _client.OnCommand += cmd => InputSimulator.Execute(cmd);
-            // Ao solicitar frame, captura e envia
-            _capture.OnFrame += packet => _client.SendScreenPacket(packet);
+
+            // WebRTC: cada técnico que entra recebe uma nova oferta (VP8 via TURN)
+            _client.OnOperatorJoined += async () =>
+            {
+                try { _client.SendOffer(await _rtc.CreateOffer(_client.IceServers)); }
+                catch (Exception) { /* sem WebRTC: o modo JPEG continua ativo */ }
+            };
+            _client.OnAnswer += sdp => _rtc.SetAnswer(sdp);
+            _client.OnRemoteIce += (c, mid, idx) => _rtc.AddRemoteIce(c, mid, idx);
+            _rtc.OnLocalIce += c => _client.SendIce(c);
+
+            // Frames: WebRTC quando ligado; caso contrário, JPEG por Socket.io (~8 fps)
+            _capture.OnFrame += (bgra, w, h) =>
+            {
+                if (_rtc.IsConnected) { _rtc.PushFrame(bgra, w, h); return; }
+                if ((DateTime.UtcNow - _lastJpeg).TotalMilliseconds < 120) return;
+                _lastJpeg = DateTime.UtcNow;
+                _client.SendScreenPacket(FrameEncoder.EncodeJpeg(bgra, w, h));
+            };
         }
 
         private void Connect()
@@ -63,6 +82,7 @@ namespace CryptoConex.PC
         private void Exit()
         {
             _capture.Stop();
+            _rtc.Close();
             _client.Disconnect();
             _tray.Visible = false;
             Application.Exit();

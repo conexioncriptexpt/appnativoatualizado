@@ -151,6 +151,73 @@ async def me(user=Depends(get_current_user)):
     return user
 
 
+class UserUpdateInput(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = Field(default=None, min_length=6)
+
+
+def require_admin(user: dict):
+    if user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Apenas o Administrador pode gerir a equipa")
+
+
+@api.get("/users")
+async def list_users(user=Depends(get_current_user)):
+    require_admin(user)
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).sort("created_at", 1).to_list(1000)
+    for u in users:
+        u["online"] = u["id"] in ONLINE_OPERATORS
+    return users
+
+
+@api.put("/users/{user_id}")
+async def update_user(user_id: str, data: UserUpdateInput, user=Depends(get_current_user)):
+    require_admin(user)
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+    updates = {}
+    if data.name:
+        updates["name"] = data.name.strip()
+    if data.role:
+        if data.role not in ("admin", "technician"):
+            raise HTTPException(status_code=400, detail="Tipo de conta inválido")
+        if target["role"] == "admin" and data.role != "admin":
+            if user_id == user["id"]:
+                raise HTTPException(status_code=400, detail="Não pode retirar a sua própria permissão de Administrador")
+            if await db.users.count_documents({"role": "admin"}) <= 1:
+                raise HTTPException(status_code=400, detail="Tem de existir pelo menos um Administrador")
+        updates["role"] = data.role
+    if data.password:
+        updates["password_hash"] = hash_password(data.password)
+    if updates:
+        await db.users.update_one({"id": user_id}, {"$set": updates})
+    return await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+
+
+@api.delete("/users/{user_id}")
+async def delete_user(user_id: str, user=Depends(get_current_user)):
+    require_admin(user)
+    if user_id == user["id"]:
+        raise HTTPException(status_code=400, detail="Não pode remover a sua própria conta")
+    target = await db.users.find_one({"id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Conta não encontrada")
+    if target["role"] == "admin" and await db.users.count_documents({"role": "admin"}) <= 1:
+        raise HTTPException(status_code=400, detail="Tem de existir pelo menos um Administrador")
+    await db.users.delete_one({"id": user_id})
+    # return their open sessions to the queue and drop their live sockets
+    await db.sessions.update_many(
+        {"assigned_to": user_id, "status": {"$in": ["assigned", "active"]}},
+        {"$set": {"status": "waiting", "assigned_to": None, "assigned_to_name": None}},
+    )
+    for osid in list(ONLINE_OPERATORS.get(user_id, set())):
+        await sio.disconnect(osid)
+    await broadcast_queue()
+    return {"ok": True}
+
+
 @api.get("/technicians")
 async def list_technicians(user=Depends(get_current_user)):
     techs = await db.users.find({"role": "technician"}, {"_id": 0, "password_hash": 0}).to_list(500)
@@ -265,8 +332,11 @@ async def connect(sid, environ, auth):
     if token:
         try:
             payload = decode_token(token)
-            user = {"id": payload["sub"], "email": payload["email"],
-                    "role": payload["role"], "name": payload.get("name", "")}
+            db_user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+            if not db_user:
+                return False
+            user = {"id": db_user["id"], "email": db_user["email"],
+                    "role": db_user["role"], "name": db_user.get("name", "")}
             OPERATOR_SIDS[sid] = user
             ONLINE_OPERATORS.setdefault(user["id"], set()).add(sid)
             await sio.enter_room(sid, "operators")

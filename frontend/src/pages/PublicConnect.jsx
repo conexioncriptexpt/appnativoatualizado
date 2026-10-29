@@ -178,12 +178,7 @@ export default function PublicConnect() {
   };
 
   const installApp = () => {
-    const sys = os === "android" ? "Android" : os === "windows" ? "Windows" : "Android / Windows";
-    toast.message(`Aplicação ${sys}`, {
-      description:
-        "O instalador nativo ficará disponível no repositório GitHub do projeto. O código-fonte completo acompanha esta entrega.",
-      duration: 6000,
-    });
+    window.location.href = `/instrucoes${os === "android" || os === "windows" ? `?os=${os}` : ""}`;
   };
 
   return (

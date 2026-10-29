@@ -34,4 +34,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     // Cliente Socket.io (reconexão com Exponential Backoff nativa)
     implementation("io.socket:socket.io-client:2.1.0") { exclude(group = "org.json", module = "json") }
+    // WebRTC nativo (PeerConnection + ScreenCapturerAndroid)
+    implementation("io.getstream:stream-webrtc-android:1.3.10")
 }

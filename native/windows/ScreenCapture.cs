@@ -14,7 +14,7 @@ namespace CryptoConex.PC
     /// </summary>
     public class ScreenCapture
     {
-        public event Action<byte[]> OnFrame;
+        public event Action<byte[], int, int> OnFrame;
         private Thread _worker;
         private volatile bool _running;
 
@@ -66,12 +66,12 @@ namespace CryptoConex.PC
                         device.ImmediateContext.CopyResource(screenTexture, stagingTexture);
 
                     var dataBox = device.ImmediateContext.MapSubresource(stagingTexture, 0, MapMode.Read, MapFlags.None);
-                    byte[] frame = FrameEncoder.EncodeBgraToJpeg(dataBox.DataPointer, width, height, dataBox.RowPitch);
+                    byte[] frame = FrameEncoder.CopyAndScale(dataBox.DataPointer, width, height, dataBox.RowPitch, out int fw, out int fh);
                     device.ImmediateContext.UnmapSubresource(stagingTexture, 0);
 
-                    OnFrame?.Invoke(frame);
+                    OnFrame?.Invoke(frame, fw, fh);
                     duplication.ReleaseFrame();
-                    Thread.Sleep(80); // ~12 fps cap
+                    Thread.Sleep(60); // ~15 fps cap
                 }
                 catch (SharpDXException) { /* timeout de frame — ignora */ }
             }

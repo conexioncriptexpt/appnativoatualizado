@@ -29,6 +29,13 @@ export default function PublicConnect() {
   const streamRef = useRef(null);
   const iceBuffer = useRef([]);
   const remoteSet = useRef(false);
+  const iceServersRef = useRef([]);
+
+  // Scale the <html> root font-size so Tailwind rem-based text actually grows.
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${fontScale * 100}%`;
+    return () => { document.documentElement.style.fontSize = ""; };
+  }, [fontScale]);
 
   const speak = useCallback((text) => {
     try {
@@ -52,24 +59,19 @@ export default function PublicConnect() {
 
   useEffect(() => cleanup, [cleanup]);
 
-  const buildPeer = useCallback((iceServers, sock, sid) => {
-    const pc = new RTCPeerConnection({ iceServers });
+  // Build a FRESH peer connection each time an operator joins (supports re-open / operator switch).
+  const startStreamToOperator = useCallback(async () => {
+    if (!streamRef.current || !socketRef.current) return;
+    const sid = sessionIdRef.current;
+    if (pcRef.current) { try { pcRef.current.close(); } catch (e) {} }
+    remoteSet.current = false;
+    iceBuffer.current = [];
+    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current });
+    pcRef.current = pc;
     streamRef.current.getTracks().forEach((t) => pc.addTrack(t, streamRef.current));
-
     pc.onicecandidate = (e) => {
-      if (e.candidate) sock.emit("rtc:ice", { session_id: sid, candidate: e.candidate });
+      if (e.candidate) socketRef.current.emit("rtc:ice", { session_id: sid, candidate: e.candidate });
     };
-    pc.onconnectionstatechange = () => {
-      if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
-        // keep socket; WebRTC may renegotiate when operator rejoins
-      }
-    };
-    return pc;
-  }, []);
-
-  const sendOffer = useCallback(async (sid) => {
-    const pc = pcRef.current;
-    if (!pc) return;
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     socketRef.current.emit("rtc:offer", { session_id: sid, sdp: pc.localDescription });
@@ -106,44 +108,39 @@ export default function PublicConnect() {
         });
       });
       sock.on("disconnect", () => setOnline(false));
-      sock.io.on("reconnect", () => {
-        setOnline(true);
-        sock.emit("device:register", {
-          device_id: getDeviceId(),
-          platform: "web",
-          name: "Navegador (" + (navigator.platform || "PC") + ")",
-        });
-      });
 
       sock.on("device:registered", ({ session_id, pin: p, iceServers }) => {
         setSessionId(session_id);
+        sessionIdRef.current = session_id;
         setPin(p);
         setStatus("connected");
+        iceServersRef.current = iceServers || [];
         speak("Conectado. Um técnico irá ajudá-lo em instantes.");
-        pcRef.current = buildPeer(iceServers, sock, session_id);
       });
 
-      // operator joined the room -> (re)send an offer so they receive the stream
+      // operator joined the room -> (re)build peer and send a fresh offer
       sock.on("operator:joined", async () => {
-        if (!pcRef.current && streamRef.current) {
-          // peer may have been reset; rebuild
-        }
-        await sendOffer(sessionIdRef.current);
+        await startStreamToOperator();
         toast.success("Técnico conectado à sua tela.");
         speak("Técnico conectado. Ele já pode ver a sua tela para ajudá-lo.");
       });
 
       sock.on("rtc:answer", async ({ sdp }) => {
-        await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
-        remoteSet.current = true;
-        for (const c of iceBuffer.current) await pcRef.current.addIceCandidate(c);
-        iceBuffer.current = [];
+        try {
+          if (!pcRef.current) return;
+          await pcRef.current.setRemoteDescription(new RTCSessionDescription(sdp));
+          remoteSet.current = true;
+          for (const c of iceBuffer.current) await pcRef.current.addIceCandidate(c);
+          iceBuffer.current = [];
+        } catch (e) { console.warn("rtc:answer", e); }
       });
 
       sock.on("rtc:ice", async ({ candidate }) => {
-        if (!candidate) return;
-        if (remoteSet.current) await pcRef.current.addIceCandidate(candidate);
-        else iceBuffer.current.push(candidate);
+        try {
+          if (!candidate || !pcRef.current) return;
+          if (remoteSet.current) await pcRef.current.addIceCandidate(candidate);
+          else iceBuffer.current.push(candidate);
+        } catch (e) { console.warn("rtc:ice", e); }
       });
 
       sock.on("command:receive", ({ command }) => {
@@ -182,10 +179,7 @@ export default function PublicConnect() {
   };
 
   return (
-    <div
-      className="min-h-screen bg-[#FAFAFD] text-[#0F172A] flex flex-col"
-      style={{ fontSize: `${fontScale}rem` }}
-    >
+    <div className="min-h-screen bg-[#FAFAFD] text-[#0F172A] flex flex-col">
       {/* Header */}
       <header className="w-full border-b-2 border-slate-900/10 bg-white">
         <div className="max-w-5xl mx-auto px-5 py-4 flex items-center justify-between">

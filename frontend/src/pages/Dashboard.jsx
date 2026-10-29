@@ -67,10 +67,16 @@ export default function Dashboard() {
     const token = localStorage.getItem("cc_token");
     const sock = createSocket({ token });
     socketRef.current = sock;
-    sock.on("queue:update", ({ sessions }) => setSessions((prev) => {
-      // merge ended sessions out of live list but keep refresh-provided history
-      return sessions;
-    }));
+    sock.on("queue:update", ({ sessions }) => {
+      setSessions(sessions);
+      // keep header counters live without a REST round-trip
+      setStats((prev) => ({
+        ...(prev || {}),
+        waiting: sessions.filter((s) => s.status === "waiting").length,
+        active: sessions.filter((s) => s.status === "active").length,
+        assigned: sessions.filter((s) => s.status === "assigned").length,
+      }));
+    });
     sock.on("session:assigned-to-you", ({ session_id }) => {
       toast.success("Nova sessão atribuída a você!");
       refresh();

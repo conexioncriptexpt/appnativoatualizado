@@ -1,0 +1,49 @@
+{
+  "summary": "Full backend (19 pytest incl. socket.io E2E flow) + frontend UI testing of Crypto Conex. All requested API and socket flows pass. CRM admin & technician UI flows (login, queue, assign select, assign-to-me, open session, all command buttons, message/type, logs, a11y tab, logout) work and commands reach the simulated device. Public page: CONECTAR, download, voice, +/- buttons clickable; with a mocked getDisplayMedia (canvas stream) the device registered, showed PIN, CRM received LIVE WebRTC video (videoWidth=320, badge 'AO VIVO'), guided message reached public page as toast, and device disconnect set CRM badge to 'encerrada'. Main defect: font +/- accessibility control does not enlarge most text.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/auth/login", "issue": "No brute-force lockout (6+ wrong attempts all return 401, never locked). No httpOnly auth cookie (token stored in localStorage, Bearer only)."},
+      {"endpoint": "CORS middleware", "issue": "CORS_ORIGINS='*' combined with allow_credentials=True (responds access-control-allow-origin: * + allow-credentials: true). Use explicit origins."},
+      {"endpoint": "socket.io events", "issue": "No session authorization: any authenticated operator (incl. technician) can operator:subscribe / command:send to ANY session_id; unauthenticated clients can emit rtc:offer/rtc:ice/a11y:tree/a11y:request into any session room without being a member. Validate that the sid belongs to the session room / is assigned technician or admin."},
+      {"endpoint": "server.py config", "issue": "TURN credentials hardcoded in ICE_SERVERS; ADMIN_PASSWORD has fallback default 'admin123' (should fail fast from env)."},
+      {"endpoint": "session status", "issue": "Session becomes 'active' (shown 'AO VIVO' in queue) as soon as operator subscribes even if no stream; never reverts when operator leaves/disconnects."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PublicConnect accessibility font controls", "issue": "font-increase/decrease only sets inline fontSize on the root div (16px->20.8px) but all text uses Tailwind rem-based classes (text-xl, text-4xl, etc.), so h1 stays 36px and most visible text does not grow. Scale document.documentElement.style.fontSize instead, or use em units.", "selector": "[data-testid='font-increase-button']", "priority": "HIGH"},
+      {"component": "Dashboard header stats", "issue": "FILA/ATIVAS/ONLINE stats only refresh via refresh() (mount/refresh button/assigned-to-you) and not on socket 'queue:update', so they go stale (e.g. showed FILA 1 ATIVAS 0 while session was AO VIVO).", "selector": "header stats", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Device reconnect (PublicConnect.jsx)", "issue": "Both sock.on('connect') and sock.io.on('reconnect') emit device:register; 'connect' also fires on reconnect, so a reconnect creates TWO new sessions; old RTCPeerConnection is not closed before buildPeer in device:registered (leak).", "affected_selectors": ["[data-testid='public-connect-button']"]},
+      {"flow": "Operator switching/re-opening session or 2 operators on same session", "issue": "Device reuses one RTCPeerConnection and re-offers on each operator:joined; rtc:offer is broadcast to ALL operators in the room, so admin+tech both answer -> device gets second answer in 'stable' state (InvalidStateError, unhandled). Re-opening a session after switching creates a new operator PC against an already-negotiated device PC -> video may not recover. Consider one PC per operator (keyed by operator sid) and target signaling to a specific sid.", "affected_selectors": ["[data-testid='crm-webrtc-stream-canvas']"]}
+    ],
+    "design_issues": [
+      {"screen": "CRM dashboard", "issues": ["Admin assign select still shows on already-assigned sessions with label reset ('Atribuir a…' shown next to assigned tech) - minor", "Queue shows multiple identical 'TEST_UI_Device' names; consider showing PIN in queue item to distinguish sessions", "Sonner toast at top-right overlaps header stats/logout briefly"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_cryptoconex_api.py", "/app/backend/tests/device_sim.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix public page font scaling (scale html root font-size) - core accessibility requirement for elderly users",
+    "Update header stats on queue:update (call refresh or compute from sessions)",
+    "Remove duplicate device:register on reconnect (keep only 'connect' handler) and close old PC before rebuilding",
+    "Make WebRTC signaling per-operator (target sid) to support re-open/multiple viewers; handle setRemoteDescription errors",
+    "Add socket-level authorization for session events (operator must be admin or assigned tech; device must own session)",
+    "Add brute-force lockout on login, explicit CORS origins, move TURN creds + admin password to env with no default"
+  ],
+  "critical_code_review_comments": [
+    "server.py: no ownership checks on operator:subscribe/command:send/rtc:*/a11y:* events",
+    "server.py: queue:update broadcasts all sessions to every operator including technicians (they see other techs' sessions)",
+    "PublicConnect.jsx: rtc:answer/rtc:ice handlers lack try/catch; pcRef can be null after cleanup",
+    "Dashboard.jsx: refresh() swallows errors silently (no error state); expired token produces empty dashboard rather than redirect"
+  ],
+  "updated_files": ["/app/backend/tests/test_cryptoconex_api.py", "/app/backend/tests/device_sim.py"],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "90% (all flows work; font scaling ineffective)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026 (from /app/memory/test_credentials.md); tech1@cryptoconex.com / Tech@1234 created during test - add to test_credentials.md",
+  "seed_data_creation": "Created technician tech1@cryptoconex.com (Tecnico Um). Several TEST_ device sessions created (now ended) in sessions/logs collections.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run backend tests with `-n 0` (pytest.ini enables xdist; tests depend on order: tech must be registered first). device_sim.py <seconds> registers a fake android device in background for UI tests. To test real WebRTC in headless, monkeypatch navigator.mediaDevices.getDisplayMedia to return canvas.captureStream() before clicking CONECTAR - this produced live video in CRM.",
+  "rca of the issue": "Font scaling: fontScale applied as inline style fontSize on a div, but Tailwind text-* utilities use rem (relative to <html>), so child text ignores the change."
+}

@@ -192,7 +192,7 @@ async def stats(user=Depends(get_current_user)):
 fastapi_app.include_router(api)
 fastapi_app.add_middleware(
     CORSMiddleware,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
@@ -341,13 +341,28 @@ async def session_assign(sid, data):
     await broadcast_queue()
 
 
+async def _can_operate(user: dict, session_id: str, allow_waiting: bool = False) -> bool:
+    if not user:
+        return False
+    if user["role"] == "admin":
+        return True
+    sess = await db.sessions.find_one({"id": session_id}, {"_id": 0, "assigned_to": 1, "status": 1})
+    if not sess:
+        return False
+    if sess.get("assigned_to") == user["id"]:
+        return True
+    if allow_waiting and sess.get("status") == "waiting":
+        return True
+    return False
+
+
 @sio.on("operator:subscribe")
 async def operator_subscribe(sid, data):
     """Operator joins a session room to receive the WebRTC stream + signal device to start."""
     user = OPERATOR_SIDS.get(sid)
-    if not user:
-        return
     session_id = data.get("session_id")
+    if not await _can_operate(user, session_id, allow_waiting=True):
+        return
     await sio.enter_room(sid, room(session_id))
     await db.sessions.update_one({"id": session_id}, {"$set": {"status": "active", "last_activity": now_iso()}})
     await log_event(session_id, "operator_subscribed", {"operator": user["email"]})
@@ -385,9 +400,9 @@ async def rtc_ice(sid, data):
 @sio.on("command:send")
 async def command_send(sid, data):
     user = OPERATOR_SIDS.get(sid)
-    if not user:
-        return
     session_id = data.get("session_id")
+    if not await _can_operate(user, session_id):
+        return
     command = data.get("command", {})
     await db.sessions.update_one({"id": session_id}, {"$set": {"last_activity": now_iso()}})
     await log_event(session_id, "command", {"command": command, "by": user["email"]})

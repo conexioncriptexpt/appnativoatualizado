@@ -3,7 +3,6 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Smartphone, Monitor, Download, ArrowLeft, Volume2, Info } from "lucide-react";
 import { detectOS } from "@/lib/datetime";
 import Logo from "@/components/Logo";
-import LisbonClock from "@/components/LisbonClock";
 
 const DOWNLOADS = {
   android: process.env.REACT_APP_DOWNLOAD_ANDROID_URL,
@@ -60,7 +59,7 @@ function OsTabs({ os, setOs }) {
           onClick={() => setOs(k)}
           data-testid={`instructions-tab-${k}`}
           className={`h-20 rounded-2xl border-2 text-lg font-bold flex items-center justify-center gap-3 transition-colors ${
-            os === k ? "bg-[#0D5C75] text-white border-slate-900" : "bg-white text-slate-900 border-slate-300 hover:border-slate-900"
+            os === k ? "bg-[#7FD113] text-black border-[#7FD113]" : "bg-[#121419] text-white border-[#2A2F38] hover:border-[#7FD113]/60"
           }`}
         >
           <g.icon size={26} /> {g.label}
@@ -74,7 +73,7 @@ function DownloadBox({ os }) {
   const url = DOWNLOADS[os];
   if (!url)
     return (
-      <div className="rounded-2xl border-2 border-amber-500 bg-amber-50 p-5 flex gap-3 text-amber-900" data-testid="download-unavailable">
+      <div className="rounded-2xl border border-amber-500/50 bg-amber-500/10 p-5 flex gap-3 text-amber-200" data-testid="download-unavailable">
         <Info size={24} className="shrink-0 mt-0.5" />
         <div className="text-lg">O ficheiro de instalação estará disponível aqui em breve. Entretanto, use o botão CONECTAR na página inicial.</div>
       </div>
@@ -83,7 +82,7 @@ function DownloadBox({ os }) {
     <a
       href={url}
       data-testid="download-app-link"
-      className="h-24 w-full rounded-3xl bg-[#0D5C75] hover:bg-[#083D4E] text-white text-2xl font-extrabold border-4 border-slate-900 flex items-center justify-center gap-4 transition-colors"
+      className="h-24 w-full rounded-3xl bg-[#7FD113] hover:bg-[#93E62A] text-black text-xl sm:text-2xl font-extrabold shadow-[0_0_50px_-15px_rgba(127,209,19,0.6)] flex items-center justify-center gap-4 transition-colors"
     >
       <Download size={32} /> Descarregar {GUIDES[os].file}
     </a>
@@ -97,12 +96,11 @@ export default function Instructions() {
   const guide = GUIDES[os];
 
   return (
-    <div className="min-h-screen bg-[#FAFAFD] text-[#0F172A] flex flex-col">
-      <header className="w-full border-b-2 border-slate-900/10 bg-white">
-        <div className="max-w-3xl mx-auto px-5 py-4 flex items-center justify-between gap-3">
-          <Link to="/" aria-label="Página inicial"><Logo size={44} /></Link>
-          <div className="hidden sm:block"><LisbonClock /></div>
-          <Link to="/" className="h-11 px-4 rounded-xl border-2 border-slate-900 flex items-center gap-2 font-bold hover:bg-slate-100 transition-colors" data-testid="instructions-back-button">
+    <div className="min-h-screen public-bg text-white flex flex-col">
+      <header className="w-full border-b border-[#1A1D23] bg-[#0B0D10]/80 backdrop-blur">
+        <div className="max-w-3xl mx-auto px-5 py-3 flex items-center justify-between gap-3">
+          <Link to="/" aria-label="Página inicial"><Logo height={48} /></Link>
+          <Link to="/" className="h-11 px-4 rounded-xl border border-[#2A2F38] flex items-center gap-2 font-bold hover:border-[#7FD113]/60 transition-colors" data-testid="instructions-back-button">
             <ArrowLeft size={20} /> Voltar
           </Link>
         </div>
@@ -110,8 +108,8 @@ export default function Instructions() {
 
       <main className="flex-1 max-w-3xl w-full mx-auto px-5 py-10 space-y-8">
         <div>
-          <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">Instalar a aplicação assistente</h1>
-          <p className="text-xl text-[#475569] mt-3">Escolha o seu aparelho e siga os passos, um de cada vez.</p>
+          <h1 className="font-display text-4xl sm:text-5xl font-extrabold tracking-tight leading-tight">Instalar a <span className="text-[#7FD113]">aplicação</span></h1>
+          <p className="text-xl text-gray-300 mt-3">Escolha o seu aparelho e siga os passos, um de cada vez.</p>
         </div>
 
         <OsTabs os={os} setOs={setOs} />
@@ -121,17 +119,17 @@ export default function Instructions() {
           {guide.steps.map((s0, i) => {
             const s = i === 0 && !DOWNLOADS[os] ? { t: s0.t, d: "Peça ao técnico o ficheiro de instalação, ou volte a esta página mais tarde." } : s0;
             return (
-            <li key={`${os}-${i}`} className="flex gap-4 rounded-2xl border-2 border-slate-200 bg-white p-5">
-              <div className="h-12 w-12 shrink-0 rounded-full bg-slate-900 text-white text-2xl font-extrabold flex items-center justify-center">{i + 1}</div>
+            <li key={`${os}-${i}`} className="flex gap-4 rounded-2xl border border-[#20242C] bg-[#121419] p-5">
+              <div className="h-12 w-12 shrink-0 rounded-full bg-[#7FD113] text-black text-2xl font-extrabold flex items-center justify-center">{i + 1}</div>
               <div className="flex-1">
                 <div className="text-xl font-bold">{s.t}</div>
-                <div className="text-lg text-[#475569] mt-1 leading-snug">{s.d}</div>
+                <div className="text-lg text-gray-400 mt-1 leading-snug">{s.d}</div>
               </div>
               <button
                 onClick={() => speak(`Passo ${i + 1}. ${s.t}. ${s.d}`)}
                 aria-label={`Ouvir passo ${i + 1}`}
                 data-testid={`instructions-speak-step-${i + 1}`}
-                className="h-12 w-12 shrink-0 rounded-xl border-2 border-slate-900 flex items-center justify-center hover:bg-slate-100 transition-colors"
+                className="h-12 w-12 shrink-0 rounded-xl border border-[#2A2F38] flex items-center justify-center hover:border-[#7FD113]/60 transition-colors"
               >
                 <Volume2 size={22} />
               </button>
@@ -140,7 +138,7 @@ export default function Instructions() {
           })}
         </ol>
 
-        <div className="rounded-2xl bg-slate-900 text-white p-6 text-lg">
+        <div className="rounded-2xl border border-[#7FD113]/30 bg-[#7FD113]/[0.06] p-6 text-lg">
           Precisa de ajuda para instalar? Volte à página inicial e carregue em <b>CONECTAR</b> — um técnico guia-o pelo navegador.
         </div>
       </main>

@@ -1,11 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { ArrowLeft, Smartphone, Monitor, Globe, Pencil, Trash2, Check, X, Circle, Search } from "lucide-react";
+import { Smartphone, Monitor, Globe, Pencil, Trash2, Check, X, Circle, Search } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import Logo from "@/components/Logo";
-import LisbonClock from "@/components/LisbonClock";
+import CrmLayout from "@/components/CrmLayout";
 import { fmtDateTime } from "@/lib/datetime";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -18,13 +16,14 @@ const errMsg = (e) => e?.response?.data?.detail || "Ocorreu um erro.";
 function DeviceRow({ d, isAdmin, onRename, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(d.display_name);
+  useEffect(() => { if (!editing) setName(d.display_name); }, [editing, d.display_name]);
   const Icon = ICONS[d.platform] || Globe;
   const save = async () => {
     if (!name.trim()) return;
     if (await onRename(d, name.trim())) setEditing(false);
   };
   return (
-    <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-gray-800 bg-[#0B0F17]" data-testid={`device-row-${d.device_id}`}>
+    <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-[#22262E] bg-[#0B0D10]" data-testid={`device-row-${d.device_id}`}>
       <div className="h-10 w-10 rounded-lg bg-gray-800 flex items-center justify-center relative">
         <Icon size={18} className="text-gray-300" />
         <Circle size={9} className={`absolute -top-0.5 -right-0.5 ${d.online ? "fill-emerald-400 text-emerald-400" : "fill-gray-600 text-gray-600"}`} />
@@ -38,27 +37,27 @@ function DeviceRow({ d, isAdmin, onRename, onDelete }) {
               maxLength={60}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditing(false); }}
-              className="flex-1 h-9 px-3 rounded-lg bg-[#111827] border border-indigo-500 text-white text-sm outline-none"
+              className="flex-1 h-9 px-3 rounded-lg bg-[#121419] border border-[#7FD113] text-white text-sm outline-none"
               data-testid="device-rename-input"
             />
-            <button onClick={save} className="h-9 w-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center" data-testid="device-rename-save"><Check size={15} /></button>
-            <button onClick={() => { setEditing(false); setName(d.display_name); }} className="h-9 w-9 rounded-lg border border-gray-700 flex items-center justify-center" data-testid="device-rename-cancel"><X size={15} /></button>
+            <button onClick={save} className="h-9 w-9 rounded-lg bg-[#7FD113] text-black flex items-center justify-center" data-testid="device-rename-save"><Check size={15} /></button>
+            <button onClick={() => setEditing(false)} className="h-9 w-9 rounded-lg border border-[#2A2F38] flex items-center justify-center" data-testid="device-rename-cancel"><X size={15} /></button>
           </div>
         ) : (
           <>
             <div className="text-sm font-semibold text-white" data-testid="device-display-name">{d.display_name}</div>
             <div className="text-[11px] font-mono text-gray-500">
-              {d.custom_name ? `${d.original_name} · ` : ""}{d.platform.toUpperCase()} · {d.connections || 1} ligações · última {fmtDateTime(new Date(d.last_seen))}
+              {d.custom_name ? `${d.original_name} · ` : ""}{d.platform.toUpperCase()} · {d.connections || 1} {(d.connections || 1) === 1 ? "ligação" : "ligações"} · última {fmtDateTime(new Date(d.last_seen))}
             </div>
           </>
         )}
       </div>
-      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${d.online ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10" : "text-gray-400 border-gray-700"}`}>
+      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${d.online ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/10" : "text-gray-400 border-[#2A2F38]"}`}>
         {d.online ? "LIGADO" : "DESLIGADO"}
       </span>
       {isAdmin && !editing && (
         <>
-          <button onClick={() => setEditing(true)} title="Renomear" className="h-9 w-9 rounded-lg border border-gray-700 flex items-center justify-center hover:bg-gray-800 transition-colors" data-testid="device-rename-button">
+          <button onClick={() => setEditing(true)} title="Renomear" className="h-9 w-9 rounded-lg border border-[#2A2F38] flex items-center justify-center hover:bg-gray-800 transition-colors" data-testid="device-rename-button">
             <Pencil size={15} />
           </button>
           <button onClick={() => onDelete(d)} title="Apagar" className="h-9 w-9 rounded-lg border border-red-900 text-red-400 flex items-center justify-center hover:bg-red-500/10 transition-colors" data-testid="device-delete-button">
@@ -111,27 +110,15 @@ export default function Devices() {
   const online = devices.filter((d) => d.online).length;
 
   return (
-    <div className="min-h-screen operator-bg text-gray-200">
-      <header className="h-16 border-b border-gray-800 bg-[#111827] flex items-center justify-between px-5 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <Logo size={40} dark />
-          <span className="hidden md:inline text-[11px] text-gray-500 font-mono border-l border-gray-700 pl-3">APARELHOS</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden lg:block"><LisbonClock dark /></div>
-          <Link to="/crm" className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors" data-testid="devices-back-button">
-            <ArrowLeft size={16} /> Painel
-          </Link>
-        </div>
-      </header>
+    <CrmLayout>
 
       <div className="max-w-5xl mx-auto p-5">
-        <section className="bg-[#111827] border border-gray-800 rounded-xl p-5">
+        <section className="bg-[#121419] border border-[#22262E] rounded-xl p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h1 className="font-display font-bold text-white text-xl">Aparelhos guardados</h1>
               <span className="text-xs font-mono text-gray-500" data-testid="devices-count">
-                {devices.length} aparelhos · {online} ligados agora
+                {devices.length} {devices.length === 1 ? "aparelho" : "aparelhos"} · {online} {online === 1 ? "ligado" : "ligados"} agora
               </span>
             </div>
             <div className="relative">
@@ -140,7 +127,7 @@ export default function Devices() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Procurar…"
-                className="h-9 pl-8 pr-3 rounded-lg bg-[#0B0F17] border border-gray-700 text-sm text-white outline-none focus:border-indigo-500"
+                className="h-9 pl-8 pr-3 rounded-lg bg-[#0B0D10] border border-[#2A2F38] text-sm text-white outline-none focus:border-[#7FD113]"
                 data-testid="devices-search-input"
               />
             </div>
@@ -168,6 +155,6 @@ export default function Devices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </CrmLayout>
   );
 }

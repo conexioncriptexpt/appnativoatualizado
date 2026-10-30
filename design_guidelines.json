@@ -1,160 +1,86 @@
 {
-  "project_name": "Crypto Conex - Inclusive Remote Assistance Ecosystem & CRM",
-  "archetype": "Swiss High-Contrast + Tactical Operator Command Center",
-  "theme_strategy": {
-    "public_page": "Ultra-Accessible Light/Dark High-Contrast Hybrid with massive visual targets, soft tactile depth, and maximum legibility for low tech literacy & motor impairment",
-    "crm_dashboard": "Tactical Dark Precision Command Console with high density, real-time WebRTC canvas streaming, accessibility tree visualization, and quick remote action control"
+  "project_name": "Crypto Conex - Remote Assistance Ecosystem",
+  "language": "pt-PT",
+  "theme": "Dark Mode (#0B0D10 obsidian dark with lime accents)",
+  "logo_url": "https://customer-assets-v7afamib.emergentagent.net/job_125c9cf8-92bc-4c4d-b9e2-574f7976e7ab/artifacts/b762537a3a4cfd26_image.png",
+  "reference_screenshots": [
+    "https://customer-assets-v7afamib.emergentagent.net/job_125c9cf8-92bc-4c4d-b9e2-574f7976e7ab/artifacts/6e2c60b8145a4814_%7BF09AD30F-0FFF-43E7-9D20-4E4F94BC93BC%7D.png",
+    "https://customer-assets-v7afamib.emergentagent.net/job_125c9cf8-92bc-4c4d-b9e2-574f7976e7ab/artifacts/0322a4199a458f3b_%7BFFD11F9B-73A3-4303-8A97-3444F35ABE3C%7D.png"
+  ],
+  "colors": {
+    "bg_main": "#0B0D10",
+    "bg_card": "#12161F",
+    "bg_surface": "#161B26",
+    "bg_elevated": "#1A2232",
+    "border_default": "#1E2638",
+    "border_highlight": "#2E3B54",
+    "brand_lime": "#00FF66",
+    "brand_lime_glow": "rgba(0, 255, 102, 0.25)",
+    "stat_amber": "#F59E0B",
+    "stat_lime": "#00FF66",
+    "stat_blue": "#3B82F6",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#94A3B8",
+    "text_muted": "#64748B",
+    "text_lime": "#00FF66"
   },
   "typography": {
-    "font_family_heading": "Outfit, sans-serif",
-    "font_family_body": "Plus Jakarta Sans, sans-serif",
-    "font_family_mono": "JetBrains Mono, monospace",
-    "font_rules": [
-      "DO NOT use Inter or Arial for headlines. Use Outfit for clean geometry and impact.",
-      "Public Page: Use massive text sizes (H1: text-4xl sm:text-5xl, Body: text-xl sm:text-2xl) for maximum readability by elderly or vision-impaired users.",
-      "CRM Dashboard: Use dense typography hierarchy (Headers: text-xl to text-2xl bold, Body: text-sm, Metrics: font-mono text-xs to text-sm) to maximize information density.",
-      "Always set tracking-tight on display headings and line-height leading-snug for multi-line instructions."
-    ]
+    "font_family_display": "'Plus Jakarta Sans', sans-serif",
+    "font_family_body": "'Inter', sans-serif",
+    "font_family_mono": "'JetBrains Mono', monospace",
+    "google_fonts_import": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
   },
-  "colors": {
-    "public_accessible_palette": {
-      "background": "#FAFAFD",
-      "surface": "#FFFFFF",
-      "primary_action": "#0D5C75",
-      "primary_action_hover": "#083D4E",
-      "primary_action_text": "#FFFFFF",
-      "secondary_action": "#10B981",
-      "secondary_action_hover": "#059669",
-      "accent_amber": "#D97706",
-      "text_main": "#0F172A",
-      "text_muted": "#475569",
-      "border_strong": "#0F172A",
-      "focus_ring": "#2563EB"
+  "layout_and_components": {
+    "public_page": {
+      "bg_style": "Radial dark vignette with subtle obsidian gradient centered behind logo",
+      "heading": "Bem-vindo ao Crypto Conex (Crypto Conex in brand lime #00FF66)",
+      "subtitle": "Vamos ajudar-te a resolver o teu problema",
+      "primary_button": "CONECTAR (Large filled lime button #00FF66 with black text, hover scale, subtle outer lime glow frame)",
+      "secondary_button": "DESCARREGAR APLICAÇÃO / INSTALAR APP (Dark outlined button with download icon)",
+      "detected_system": "Sistema detetado: Windows 10/11 · Mono typography",
+      "privacy_card": "A tua privacidade é importante... Shield icon card with muted border",
+      "header_controls": "Top-right sound toggle 'Som ligado'"
     },
-    "crm_operator_palette": {
-      "background": "#0B0F17",
-      "surface_card": "#111827",
-      "surface_elevated": "#1F2937",
-      "border": "#374151",
-      "primary_indigo": "#6366F1",
-      "primary_indigo_hover": "#4F46E5",
-      "status_live_emerald": "#10B981",
-      "status_waiting_amber": "#F59E0B",
-      "status_danger": "#EF4444",
-      "text_primary": "#F9FAFB",
-      "text_secondary": "#9CA3AF",
-      "text_mono_code": "#38BDF8"
-    },
-    "rules": [
-      "Strict compliance with WCAG 2.1 AAA contrast ratios (minimum 7:1 for public connection page elements).",
-      "Never rely on color alone for status indicators; pair colors with icons and clear text labels (e.g. Live Badge = pulse animation + green color + text 'AO VIVO').",
-      "Never use pure black #000000; use #0B0F17 for dark background and #0F172A for light text."
-    ]
-  },
-  "layout_strategies": {
-    "public_connection_page": {
-      "structure": "Single-focused vertical container, centered alignment with zero clutter. Screen space dedicated 60% to the primary 'Conectar' action button.",
-      "hero_button": {
-        "min_height": "h-24 sm:h-32",
-        "min_width": "w-full max-w-md",
-        "font_size": "text-2xl sm:text-3xl font-extrabold",
-        "border": "border-4 border-slate-900 shadow-[0_12px_32px_rgba(13,92,117,0.35)]",
-        "micro_interaction": "Active press animation with scale-95 and clear visual/audio state 'Conectando...', 'Conectado'."
+    "crm_dashboard": {
+      "sidebar": {
+        "bg": "#0B0D10 with right border #1E2638",
+        "logo_header": "Embedded Crypto Conex brand logo image top left",
+        "nav_items": [
+          "Consola ao Vivo (Active state: outlined pill with lime border #00FF66 & lime text)",
+          "Dashboard",
+          "Atendimentos",
+          "Dispositivos",
+          "Links de Assistência",
+          "Equipa",
+          "Configurações"
+        ]
       },
-      "secondary_button": {
-        "text": "Download App (Windows / Android)",
-        "style": "h-16 w-full max-w-md text-lg font-bold border-2 rounded-2xl bg-white text-slate-900 hover:bg-slate-100"
+      "topbar": {
+        "status": "TEMPO REAL ATIVO (Wifi icon + pulse effect, mono uppercase)",
+        "counters": [
+          "NOVOS (amber #F59E0B)",
+          "ATIVAS (lime #00FF66)",
+          "ONLINE (blue #3B82F6)"
+        ],
+        "lisbon_clock": "Pill badge 'LISBOA 30/10/2026 18:19:27' with lime clock time in JetBrains Mono",
+        "user_profile": "User Name + 'SUPER ADMIN' in lime mono badge + avatar circle"
       },
-      "accessibility_features": [
-        "High-contrast color toggle",
-        "Font size scaling options (A+ / A-)",
-        "Audio feedback voice synthesis trigger option",
-        "Large 6-digit session pin generator with visual click-to-copy"
-      ]
-    },
-    "crm_web_dashboard": {
-      "layout_mode": "High Density Grid (MODE B)",
-      "grid_columns": "grid-cols-1 lg:grid-cols-12 gap-4 p-4 min-h-screen bg-[#0B0F17]",
-      "components": {
-        "sidebar_queue": "col-span-12 lg:col-span-3 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col h-[calc(100vh-2rem)]",
-        "main_stream_viewer": "col-span-12 lg:col-span-6 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col h-[calc(100vh-2rem)] relative overflow-hidden",
-        "control_and_tree_panel": "col-span-12 lg:col-span-3 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col h-[calc(100vh-2rem)] gap-4 overflow-y-auto"
+      "consola_ao_vivo_panels": {
+        "left_panel": "Aparelhos ligados (Connected device queue list with status dots and action buttons)",
+        "center_panel": "Visualizador ao Vivo (Large interactive remote viewer canvas/screen with overlay controls)",
+        "right_panel_tabs": {
+          "active_tab": "Comandos (Filled lime pill #00FF66 with dark text)",
+          "other_tabs": ["Acessibilidade", "Logs"],
+          "content": "Interactive command console terminal, quick accessibility toggles, live stream logs"
+        }
       }
     }
   },
-  "key_components_breakdown": {
-    "1_public_connection_page": [
-      "Header with Crypto Conex logo, accessibility options (font size boost, high contrast toggle, sound instructions).",
-      "Central Hero Card containing status banner ('Pronto para conectar'), Session Code display, giant 'CONECTAR AGORA' button (WebRTC screen share trigger).",
-      "Sub-hero section with 'Baixar Aplicativo Assistente' (Android APK & Windows EXE links).",
-      "Help/Support modal with step-by-step visual illustrations."
-    ],
-    "2_crm_login_and_auth": [
-      "JWT Login with Role detection (Super Admin vs Technician).",
-      "Super Admin sees full system overview, metrics, technician availability, global unassigned queue, manual assignment controls.",
-      "Technician view filters automatically to assigned active sessions + global queue pull action."
-    ],
-    "3_global_queue_panel": [
-      "Real-time list of pending help requests with priority indicators, user OS icon (Android/Windows/Web), user initial/code, wait time.",
-      "Filter by status: Unassigned, Assigned to me, In Progress, Resolved.",
-      "'Atribuir a Mim' action button with immediate status transition."
-    ],
-    "4_webrtc_live_stream_viewer": [
-      "Canvas-based stream container with real-time screen display.",
-      "Interactive overlay overlaying mouse coordinates and remote tap/click/swipe injection.",
-      "Toolbar overlay: Screenshot, Pause stream, Quality selector (HD/SD), Latency indicator (ms), Record session button."
-    ],
-    "5_remote_interaction_command_console": [
-      "Action buttons: Single Click, Double Click, Long Press, Swipe Up/Down/Left/Right, Back Button, Home Button, Type Text Input.",
-      "Macro shortcuts for quick assistance (e.g. Open Settings, Highlight Element, Guide Pointer)."
-    ],
-    "6_accessibility_node_tree_reader": [
-      "Structured tree view of the user device screen's accessibility DOM / Android Accessibility Nodes.",
-      "Highlightable nodes: Text labels, Clickable elements, Input fields, Focus hierarchy.",
-      "Clicking a node in the tree sends target action straight to that element on the user's remote device."
-    ],
-    "7_session_history_and_logs": [
-      "Detailed session log drawer/tab with timestamps of connection, commands sent, technician notes, duration, and resolution status."
-    ]
-  },
-  "motion_and_interactions": {
-    "libraries": ["framer-motion", "lucide-react"],
-    "rules": [
-      "Use specific transitions (e.g., transition: opacity 0.2s ease, transform 0.2s ease) - NEVER transition: all.",
-      "Respect prefers-reduced-motion for all public page visual effects.",
-      "CRM Stream canvas must update smoothly with minimal render lag.",
-      "Micro-animations on remote command dispatch (visual pulse on remote screen click indicator)."
-    ]
-  },
-  "accessibility_and_usability_standards": {
-    "wcag": "AAA standards for public assist page, AA for CRM dashboard",
-    "touch_targets": "Minimum 56px for standard controls, 80px+ for main Public 'Conectar' button",
-    "screen_readers": "Aria-live regions for session state updates ('Conexão iniciada', 'Técnico conectado')",
-    "keyboard_nav": "Full tab navigation support and visible high-contrast focus rings"
-  },
-  "testing_guidelines": {
-    "mandatory_data_testid": true,
-    "naming_convention": "kebab-case describing function",
-    "examples": [
-      "data-testid='public-connect-button'",
-      "data-testid='download-app-android-button'",
-      "data-testid='download-app-windows-button'",
-      "data-testid='crm-login-form-email-input'",
-      "data-testid='crm-login-form-submit-button'",
-      "data-testid='crm-global-queue-list'",
-      "data-testid='crm-assign-session-button'",
-      "data-testid='crm-webrtc-stream-canvas'",
-      "data-testid='crm-command-click-button'",
-      "data-testid='crm-accessibility-node-tree'",
-      "data-testid='crm-session-history-table'"
-    ]
-  },
-  "instructions_to_main_agent": [
-    "Follow the exact component guidelines provided in this file.",
-    "Ensure both surfaces (Public Connection Page & CRM Operator Portal) are fully implemented and accessible via client-side router (/ for public page, /login for CRM login, /crm for technician dashboard).",
-    "For the public page, keep the design ultra-clean, friendly, high contrast, bold text, large icons, and straightforward instructions.",
-    "For the CRM dashboard, provide real-time mock simulation for WebRTC stream, command logs, queue updates, and accessibility node hierarchy tree.",
-    "Integrate Sonner toasts for connection alerts, technician assignment feedback, and action confirmations.",
-    "Add proper data-testid attributes to all interactive elements."
+  "general_ui_ux_guidelines": [
+    "All UI elements MUST be in Portuguese (pt-PT).",
+    "All interactive elements and key text/badges MUST include unique 'data-testid' attributes (e.g. data-testid='connect-button', data-testid='sidebar-nav-consola', data-testid='live-viewer-canvas').",
+    "Strict contrast and readability on obsidian dark surface (#0B0D10). Never use transparent backgrounds on dropdowns or overlays.",
+    "Responsive layout with smooth hover and click micro-animations for buttons, tabs, and queue items.",
+    "Monospace font (JetBrains Mono) must be used for times, command logs, stat counters, and technical system details."
   ]
 }

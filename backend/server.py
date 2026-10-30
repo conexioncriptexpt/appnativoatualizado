@@ -221,6 +221,111 @@ async def delete_user(user_id: str, user=Depends(get_current_user)):
     return {"ok": True}
 
 
+class MeUpdateInput(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=60)
+    current_password: Optional[str] = None
+    new_password: Optional[str] = Field(default=None, min_length=6)
+
+
+@api.put("/auth/me")
+async def update_me(data: MeUpdateInput, user=Depends(get_current_user)):
+    updates = {}
+    if data.name:
+        updates["name"] = data.name.strip()
+    if data.new_password:
+        me = await db.users.find_one({"id": user["id"]})
+        if not data.current_password or not verify_password(data.current_password, me["password_hash"]):
+            raise HTTPException(status_code=400, detail="A palavra-passe atual está incorreta")
+        updates["password_hash"] = hash_password(data.new_password)
+    if updates:
+        await db.users.update_one({"id": user["id"]}, {"$set": updates})
+    return await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+
+
+@api.get("/stats/overview")
+async def stats_overview(user=Depends(get_current_user)):
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Europe/Lisbon")
+    today = datetime.now(tz).date()
+    days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    since = datetime.combine(days[0], datetime.min.time(), tz).astimezone(timezone.utc).isoformat()
+    recent = await db.sessions.find({"created_at": {"$gte": since}}, {"_id": 0, "created_at": 1}).to_list(20000)
+    per_day = {d.isoformat(): 0 for d in days}
+    for s in recent:
+        k = datetime.fromisoformat(s["created_at"]).astimezone(tz).date().isoformat()
+        if k in per_day:
+            per_day[k] += 1
+    by_platform = {g["_id"] or "web": g["n"] async for g in db.sessions.aggregate(
+        [{"$group": {"_id": "$platform", "n": {"$sum": 1}}}])}
+    durations = []
+    async for s in db.sessions.find({"status": "ended", "ended_at": {"$ne": None}}, {"_id": 0, "created_at": 1, "ended_at": 1}).sort("created_at", -1).limit(500):
+        try:
+            durations.append((datetime.fromisoformat(s["ended_at"]) - datetime.fromisoformat(s["created_at"])).total_seconds())
+        except (TypeError, ValueError):
+            pass
+    top = [{"name": g["_id"], "sessions": g["n"]} async for g in db.sessions.aggregate([
+        {"$match": {"assigned_to_name": {"$ne": None}}},
+        {"$group": {"_id": "$assigned_to_name", "n": {"$sum": 1}}},
+        {"$sort": {"n": -1}}, {"$limit": 5}])]
+    return {
+        "total_sessions": await db.sessions.count_documents({}),
+        "today": per_day[today.isoformat()],
+        "devices": await db.devices.count_documents({}),
+        "links": await db.assist_links.count_documents({}),
+        "avg_duration_s": int(sum(durations) / len(durations)) if durations else 0,
+        "per_day": [{"date": k, "count": v} for k, v in per_day.items()],
+        "by_platform": by_platform,
+        "top_technicians": top,
+    }
+
+
+# ---- Assistance links ------------------------------------------------------
+class LinkInput(BaseModel):
+    label: str = Field(min_length=1, max_length=60)
+    technician_id: Optional[str] = None
+
+
+@api.get("/links")
+async def list_links(user=Depends(get_current_user)):
+    q = {} if user["role"] == "admin" else {"technician_id": user["id"]}
+    return await db.assist_links.find(q, {"_id": 0}).sort("created_at", -1).to_list(1000)
+
+
+@api.post("/links")
+async def create_link(data: LinkInput, user=Depends(get_current_user)):
+    tech_id = data.technician_id if user["role"] == "admin" and data.technician_id else user["id"]
+    tech = await db.users.find_one({"id": tech_id}, {"_id": 0, "password_hash": 0})
+    if not tech:
+        raise HTTPException(status_code=404, detail="Técnico não encontrado")
+    doc = {
+        "code": uuid.uuid4().hex[:8], "label": data.label.strip(),
+        "technician_id": tech["id"], "technician_name": tech["name"],
+        "created_by": user["email"], "created_at": now_iso(), "uses": 0, "last_used": None,
+    }
+    await db.assist_links.insert_one(doc)
+    doc.pop("_id", None)
+    return doc
+
+
+@api.delete("/links/{code}")
+async def delete_link(code: str, user=Depends(get_current_user)):
+    link = await db.assist_links.find_one({"code": code})
+    if not link:
+        raise HTTPException(status_code=404, detail="Link não encontrado")
+    if user["role"] != "admin" and link["technician_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Sem permissão")
+    await db.assist_links.delete_one({"code": code})
+    return {"ok": True}
+
+
+@api.get("/public/links/{code}")
+async def public_link(code: str):
+    link = await db.assist_links.find_one({"code": code}, {"_id": 0, "label": 1, "technician_name": 1})
+    if not link:
+        raise HTTPException(status_code=404, detail="Link inválido ou expirado")
+    return link
+
+
 class DeviceRenameInput(BaseModel):
     name: str = Field(min_length=1, max_length=60)
 
@@ -261,7 +366,8 @@ async def delete_device(device_id: str, user=Depends(get_current_user)):
     device = await db.devices.find_one({"device_id": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Aparelho não encontrado")
-    ended = await db.sessions.distinct("id", {"device_id": device_id, "status": "ended"})
+    live = list(set(DEVICE_SIDS.values()))
+    ended = await db.sessions.distinct("id", {"device_id": device_id, "id": {"$nin": live}})
     await db.logs.delete_many({"session_id": {"$in": ended}})
     await db.sessions.delete_many({"id": {"$in": ended}})
     # a live session keeps running, but loses the custom name
@@ -452,6 +558,20 @@ async def device_register(sid, data):
     device_id = (data or {}).get("device_id") or str(uuid.uuid4())
     platform = (data or {}).get("platform", "web")
     name = (data or {}).get("name") or f"Dispositivo {device_id[:6]}"
+    session_id = str(uuid.uuid4())
+    # claim the sid first so a disconnect arriving mid-registration ends this session
+    DEVICE_SIDS[sid] = session_id
+    try:
+        await sio.enter_room(sid, room(session_id))
+    except ValueError:
+        DEVICE_SIDS.pop(sid, None)
+        return
+    # close stale open sessions of this same device (reconnects / dropped transports)
+    live = set(DEVICE_SIDS.values())
+    await db.sessions.update_many(
+        {"device_id": device_id, "status": {"$ne": "ended"}, "id": {"$nin": list(live)}},
+        {"$set": {"status": "ended", "ended_at": now_iso()}},
+    )
     saved = await db.devices.find_one_and_update(
         {"device_id": device_id},
         {"$set": {"platform": platform, "original_name": name, "last_seen": now_iso()},
@@ -460,20 +580,35 @@ async def device_register(sid, data):
         upsert=True, return_document=True, projection={"_id": 0},
     )
     name = saved.get("custom_name") or name
-    session_id = str(uuid.uuid4())
     pin = str(uuid.uuid4().int)[:6]
+    link = None
+    if (data or {}).get("link_code"):
+        link = await db.assist_links.find_one_and_update(
+            {"code": data["link_code"]},
+            {"$inc": {"uses": 1}, "$set": {"last_used": now_iso()}},
+            projection={"_id": 0}, return_document=True,
+        )
+    if link and not saved.get("custom_name"):
+        name = link["label"]
     doc = {
         "id": session_id, "device_id": device_id, "platform": platform,
-        "name": name, "pin": pin, "status": "waiting",
-        "assigned_to": None, "assigned_to_name": None,
+        "name": name, "pin": pin, "status": "assigned" if link else "waiting",
+        "assigned_to": link["technician_id"] if link else None,
+        "assigned_to_name": link["technician_name"] if link else None,
+        "link_code": link["code"] if link else None,
         "created_at": now_iso(), "ended_at": None, "last_activity": now_iso(),
     }
     await db.sessions.insert_one(doc)
-    DEVICE_SIDS[sid] = session_id
-    await sio.enter_room(sid, room(session_id))
+    if DEVICE_SIDS.get(sid) != session_id:
+        # socket dropped while registering
+        await db.sessions.update_one({"id": session_id}, {"$set": {"status": "ended", "ended_at": now_iso()}})
+        return
     await log_event(session_id, "device_registered", {"platform": platform, "device_id": device_id})
     doc.pop("_id", None)
     await sio.emit("device:registered", {"session_id": session_id, "pin": pin, "iceServers": ICE_SERVERS}, to=sid)
+    if link:
+        for tsid in ONLINE_OPERATORS.get(link["technician_id"], set()):
+            await sio.emit("session:assigned-to-you", {"session_id": session_id}, to=tsid)
     await broadcast_queue()
 
 

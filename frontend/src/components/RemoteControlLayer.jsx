@@ -146,7 +146,7 @@ export function RemoteControlLayer({ getMedia, onCommand }) {
       ref={layerRef}
       tabIndex={0}
       data-testid="remote-control-layer"
-      className="absolute inset-0 z-10 cursor-crosshair outline-none touch-none select-none focus:ring-2 focus:ring-inset focus:ring-indigo-500/60"
+      className="absolute inset-0 z-10 cursor-crosshair outline-none touch-none select-none focus:ring-2 focus:ring-inset focus:ring-[#7FD113]/60"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
@@ -165,7 +165,7 @@ export function RemoteControlLayer({ getMedia, onCommand }) {
       ))}
       <div
         className={`absolute bottom-2 left-2 text-[10px] font-mono px-2 py-1 rounded-md border flex items-center gap-1.5 transition-colors ${
-          focused ? "bg-indigo-500/20 border-indigo-400/50 text-indigo-200" : "bg-black/60 border-gray-700 text-gray-400"
+          focused ? "bg-[#7FD113]/20 border-[#7FD113]/50 text-[#7FD113]" : "bg-black/60 border-[#2A2F38] text-gray-400"
         }`}
         data-testid="remote-control-hint"
       >

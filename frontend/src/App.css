@@ -1,8 +1,20 @@
 .App { min-height: 100vh; }
 
 /* Remote control feedback */
-.remote-ripple { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 9999px; pointer-events: none; border: 2px solid #818cf8; animation: remote-ripple 600ms ease-out forwards; }
+.remote-ripple { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 9999px; pointer-events: none; border: 2px solid #7FD113; animation: remote-ripple 600ms ease-out forwards; }
 .remote-ripple-right { border-color: #f59e0b; }
 .remote-ripple-long { border-color: #34d399; border-width: 4px; }
 .remote-ripple-drag { border-color: #38bdf8; }
 @keyframes remote-ripple { from { transform: scale(0.4); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }
+
+
+/* Brand dark theme */
+.public-bg {
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 30%, rgba(127, 209, 19, 0.10), transparent 70%),
+    radial-gradient(ellipse at center, #121419 0%, #0B0D10 55%, #060708 100%);
+}
+.fade-up { animation: fade-up 600ms ease-out both; }
+@keyframes fade-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.crm-shell ::selection, .public-bg ::selection { background: rgba(127, 209, 19, 0.35); }
+.crm-shell select option { background: #121419; }

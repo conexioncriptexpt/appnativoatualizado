@@ -12,14 +12,14 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { createSocket } from "@/lib/socket";
 import { fmtTime } from "@/lib/datetime";
-import Logo from "@/components/Logo";
-import LisbonClock from "@/components/LisbonClock";
+import CrmLayout from "@/components/CrmLayout";
+import { playAlert } from "@/lib/alert";
 import { RemoteControlLayer } from "@/components/RemoteControlLayer";
 
 const PLATFORM_ICON = { android: Smartphone, windows: Monitor, web: Globe };
 const STATUS_STYLE = {
   waiting: { label: "AGUARDANDO", cls: "text-amber-400 border-amber-500/40 bg-amber-500/10" },
-  assigned: { label: "ATRIBUÍDA", cls: "text-indigo-300 border-indigo-500/40 bg-indigo-500/10" },
+  assigned: { label: "ATRIBUÍDA", cls: "text-[#7FD113] border-[#7FD113]/40 bg-[#7FD113]/10" },
   active: { label: "AO VIVO", cls: "text-emerald-400 border-emerald-500/40 bg-emerald-500/10" },
   ended: { label: "ENCERRADA", cls: "text-gray-500 border-gray-600/40 bg-gray-600/10" },
 };
@@ -54,6 +54,7 @@ export default function Dashboard() {
   const remoteSet = useRef(false);
   const rtcLive = useRef(false);
   const activeRef = useRef(null);
+  const knownIds = useRef(new Set());
   useEffect(() => { activeRef.current = active; }, [active]);
 
   const isAdmin = user?.role === "admin";
@@ -76,6 +77,10 @@ export default function Dashboard() {
     const sock = createSocket({ token });
     socketRef.current = sock;
     sock.on("queue:update", ({ sessions }) => {
+      const known = knownIds.current;
+      const fresh = sessions.some((s) => s.status === "waiting" && !known.has(s.id));
+      if (known.size && fresh) playAlert();
+      knownIds.current = new Set(sessions.map((s) => s.id));
       setSessions(sessions);
       // keep header counters live without a REST round-trip
       setStats((prev) => ({
@@ -194,73 +199,20 @@ export default function Dashboard() {
   const liveSessions = sessions.filter((s) => s.status !== "ended");
 
   return (
-    <div className="min-h-screen operator-bg text-gray-200">
-      {/* Top bar */}
-      <header className="h-16 border-b border-gray-800 bg-[#111827] flex items-center justify-between px-5 sticky top-0 z-20">
-        <div className="flex items-center gap-3">
-          <Logo size={40} dark />
-          <span className="hidden md:inline text-[11px] text-gray-500 font-mono border-l border-gray-700 pl-3">
-            {isAdmin ? "SUPER ADMIN" : "TÉCNICO"} · {user?.name}
-          </span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="hidden lg:block">
-            <LisbonClock dark />
-          </div>
-          {stats && (
-            <div className="hidden md:flex items-center gap-4 text-xs font-mono">
-              <Stat label="FILA" value={stats.waiting} color="text-amber-400" />
-              <Stat label="ATIVAS" value={stats.active} color="text-emerald-400" />
-              <Stat label="ONLINE" value={stats.online_operators} color="text-indigo-300" />
-            </div>
-          )}
-          <Link
-            to="/crm/aparelhos"
-            data-testid="devices-link"
-            className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors"
-          >
-            <Smartphone size={16} /> Aparelhos
-          </Link>
-          {isAdmin && (
-            <Link
-              to="/crm/equipa"
-              data-testid="team-management-link"
-              className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors"
-            >
-              <Users size={16} /> Equipa
-            </Link>
-          )}
-          <button
-            onClick={refresh}
-            className="h-9 w-9 rounded-lg border border-gray-700 flex items-center justify-center hover:bg-gray-800 transition-colors"
-            data-testid="refresh-button"
-            title="Atualizar"
-          >
-            <RefreshCw size={16} />
-          </button>
-          <button
-            onClick={logout}
-            data-testid="logout-button"
-            className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors"
-          >
-            <LogOut size={16} /> Sair
-          </button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4">
+    <CrmLayout>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 p-5">
         {/* Queue */}
-        <aside className="lg:col-span-3 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col lg:h-[calc(100vh-6rem)]">
+        <aside className="lg:col-span-3 bg-[#121419] border border-[#22262E] rounded-2xl p-4 flex flex-col lg:h-[calc(100vh-6.5rem)]">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-display font-bold text-white flex items-center gap-2">
-              <Radio size={18} className="text-indigo-400" /> Fila de Atendimento
+              <Radio size={18} className="text-[#7FD113]" /> Aparelhos ligados
             </h2>
             <span className="text-xs font-mono text-gray-500">{liveSessions.length}</span>
           </div>
           <div className="flex-1 overflow-y-auto thin-scroll space-y-2 pr-1" data-testid="crm-global-queue-list">
             <AnimatePresence>
               {liveSessions.length === 0 && (
-                <div className="text-center text-gray-600 text-sm py-10">Nenhuma solicitação no momento.</div>
+                <div className="text-center text-gray-600 text-sm py-10">Nenhum aparelho ligado de momento.</div>
               )}
               {liveSessions.map((s) => {
                 const Icon = PLATFORM_ICON[s.platform] || Globe;
@@ -275,7 +227,7 @@ export default function Dashboard() {
                     exit={{ opacity: 0 }}
                     onClick={() => (mine || isAdmin || s.status === "waiting") && openSession(s)}
                     className={`rounded-xl border p-3 cursor-pointer transition-colors ${
-                      active?.id === s.id ? "border-indigo-500 bg-indigo-500/10" : "border-gray-800 bg-[#0B0F17] hover:border-gray-700"
+                      active?.id === s.id ? "border-[#7FD113] bg-[#7FD113]/10" : "border-[#22262E] bg-[#0B0D10] hover:border-[#2A2F38]"
                     }`}
                     data-testid="queue-session-item"
                   >
@@ -305,7 +257,7 @@ export default function Dashboard() {
                         <button
                           onClick={(e) => { e.stopPropagation(); assign(s, user.id); }}
                           data-testid="crm-assign-to-me-button"
-                          className="flex-1 h-8 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold transition-colors"
+                          className="flex-1 h-8 rounded-lg bg-[#7FD113] hover:bg-[#93E62A] text-black text-xs font-bold transition-colors"
                         >
                           Atribuir a mim
                         </button>
@@ -316,7 +268,7 @@ export default function Dashboard() {
                           onChange={(e) => e.target.value && assign(s, e.target.value)}
                           defaultValue=""
                           data-testid="crm-assign-session-button"
-                          className="flex-1 h-8 rounded-lg bg-gray-800 border border-gray-700 text-xs text-white px-2"
+                          className="flex-1 h-8 rounded-lg bg-gray-800 border border-[#2A2F38] text-xs text-white px-2"
                         >
                           <option value="" disabled>Atribuir a…</option>
                           {technicians.map((t) => (
@@ -333,22 +285,22 @@ export default function Dashboard() {
         </aside>
 
         {/* Stream viewer */}
-        <main className="lg:col-span-6 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col lg:h-[calc(100vh-6rem)]">
+        <main className="lg:col-span-6 bg-[#121419] border border-[#22262E] rounded-2xl p-4 flex flex-col lg:h-[calc(100vh-6.5rem)]">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-display font-bold text-white flex items-center gap-2">
-              <Monitor size={18} className="text-indigo-400" /> Visualizador ao Vivo
+              <Monitor size={18} className="text-[#7FD113]" /> Visualizador ao Vivo
             </h2>
             {active && (
               <span className={`text-xs font-mono px-2 py-1 rounded-full border ${
                 rtcState === "live" ? "text-emerald-400 border-emerald-500/40 bg-emerald-500/10 live-pulse"
                 : rtcState === "connecting" ? "text-amber-400 border-amber-500/40 bg-amber-500/10"
-                : "text-gray-500 border-gray-700"
+                : "text-gray-500 border-[#2A2F38]"
               }`} data-testid="rtc-state-badge">
                 {rtcState === "live" ? "● AO VIVO" : rtcState === "connecting" ? "conectando…" : rtcState === "ended" ? "encerrada" : "ocioso"}
               </span>
             )}
           </div>
-          <div className="flex-1 rounded-xl bg-black border border-gray-800 relative overflow-hidden flex items-center justify-center">
+          <div className="flex-1 rounded-xl bg-black border border-[#22262E] relative overflow-hidden flex items-center justify-center">
             <video
               ref={videoRef}
               autoPlay
@@ -376,7 +328,7 @@ export default function Dashboard() {
               <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-600 gap-3 pointer-events-none">
                 <CircleDot size={48} className={rtcState === "connecting" ? "animate-pulse text-amber-500" : ""} />
                 <div className="text-sm font-mono">
-                  {active ? (rtcState === "connecting" ? "Estabelecendo WebRTC…" : "Sem transmissão") : "Selecione uma sessão na fila"}
+                  {active ? (rtcState === "connecting" ? "Estabelecendo WebRTC…" : "Sem transmissão") : "Selecione um aparelho ligado"}
                 </div>
               </div>
             )}
@@ -390,8 +342,8 @@ export default function Dashboard() {
         </main>
 
         {/* Control + tree + logs */}
-        <aside className="lg:col-span-3 bg-[#111827] border border-gray-800 rounded-xl p-4 flex flex-col lg:h-[calc(100vh-6rem)]">
-          <div className="flex gap-1 mb-3 bg-[#0B0F17] rounded-lg p-1">
+        <aside className="lg:col-span-3 bg-[#121419] border border-[#22262E] rounded-2xl p-4 flex flex-col lg:h-[calc(100vh-6.5rem)]">
+          <div className="flex gap-1 mb-3 bg-[#0B0D10] rounded-lg p-1">
             {[
               { k: "commands", label: "Comandos", icon: MousePointerClick },
               { k: "tree", label: "Acessib.", icon: ListTree },
@@ -402,7 +354,7 @@ export default function Dashboard() {
                 onClick={() => { setRightTab(t.k); if (t.k === "logs" && active) loadLogs(active.id); }}
                 data-testid={`right-tab-${t.k}`}
                 className={`flex-1 h-9 rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-                  rightTab === t.k ? "bg-indigo-500 text-white" : "text-gray-400 hover:text-white"
+                  rightTab === t.k ? "bg-[#7FD113] text-black" : "text-gray-400 hover:text-white"
                 }`}
               >
                 <t.icon size={14} /> {t.label}
@@ -432,14 +384,14 @@ export default function Dashboard() {
                       type="number" value={coords.x}
                       onChange={(e) => setCoords((c) => ({ ...c, x: +e.target.value }))}
                       data-testid="crm-coord-x-input"
-                      className="w-full h-10 px-3 rounded-lg bg-[#0B0F17] border border-gray-700 text-white font-mono text-sm"
+                      className="w-full h-10 px-3 rounded-lg bg-[#0B0D10] border border-[#2A2F38] text-white font-mono text-sm"
                       placeholder="X"
                     />
                     <input
                       type="number" value={coords.y}
                       onChange={(e) => setCoords((c) => ({ ...c, y: +e.target.value }))}
                       data-testid="crm-coord-y-input"
-                      className="w-full h-10 px-3 rounded-lg bg-[#0B0F17] border border-gray-700 text-white font-mono text-sm"
+                      className="w-full h-10 px-3 rounded-lg bg-[#0B0D10] border border-[#2A2F38] text-white font-mono text-sm"
                       placeholder="Y"
                     />
                   </div>
@@ -451,7 +403,7 @@ export default function Dashboard() {
                       value={typeText}
                       onChange={(e) => setTypeText(e.target.value)}
                       data-testid="crm-type-text-input"
-                      className="flex-1 h-10 px-3 rounded-lg bg-[#0B0F17] border border-gray-700 text-white text-sm"
+                      className="flex-1 h-10 px-3 rounded-lg bg-[#0B0D10] border border-[#2A2F38] text-white text-sm"
                       placeholder="Texto…"
                     />
                     <button
@@ -470,13 +422,13 @@ export default function Dashboard() {
                       value={msg}
                       onChange={(e) => setMsg(e.target.value)}
                       data-testid="crm-message-input"
-                      className="flex-1 h-10 px-3 rounded-lg bg-[#0B0F17] border border-gray-700 text-white text-sm"
+                      className="flex-1 h-10 px-3 rounded-lg bg-[#0B0D10] border border-[#2A2F38] text-white text-sm"
                       placeholder="Ex: Toque no botão verde"
                     />
                     <button
                       onClick={() => { if (msg) { sendCommand({ type: "message", text: msg }); setMsg(""); toast.success("Mensagem enviada"); } }}
                       data-testid="crm-send-message-button"
-                      className="h-10 w-10 rounded-lg bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center transition-colors"
+                      className="h-10 w-10 rounded-lg bg-[#7FD113] hover:bg-[#93E62A] text-black flex items-center justify-center transition-colors"
                     >
                       <MessageSquare size={16} />
                     </button>
@@ -504,7 +456,7 @@ export default function Dashboard() {
                       <button
                         key={i}
                         onClick={() => sendCommand({ type: "click", x: n.cx, y: n.cy, node: n.id })}
-                        className="w-full text-left px-2 py-1.5 rounded hover:bg-indigo-500/20 border border-gray-800 text-sky-300"
+                        className="w-full text-left px-2 py-1.5 rounded hover:bg-[#7FD113]/20 border border-[#22262E] text-sky-300"
                       >
                         <span className="text-gray-500">{n.className || "node"}</span> · {n.text || n.desc || "—"}
                         {n.clickable && <span className="text-emerald-400 ml-1">[click]</span>}
@@ -521,9 +473,9 @@ export default function Dashboard() {
                   <div className="text-center text-gray-600 py-8">Sem registros nesta sessão.</div>
                 ) : (
                   logs.map((l, i) => (
-                    <div key={i} className="px-2 py-1.5 rounded bg-[#0B0F17] border border-gray-800">
+                    <div key={i} className="px-2 py-1.5 rounded bg-[#0B0D10] border border-[#22262E]">
                       <span className="text-gray-600">{fmtTime(new Date(l.timestamp))}</span>{" "}
-                      <span className="text-indigo-300">{l.type}</span>
+                      <span className="text-[#7FD113]">{l.type}</span>
                       {l.payload?.command && <span className="text-sky-300"> · {l.payload.command.type}</span>}
                     </div>
                   ))
@@ -533,7 +485,7 @@ export default function Dashboard() {
           </div>
         </aside>
       </div>
-    </div>
+    </CrmLayout>
   );
 }
 
@@ -558,7 +510,7 @@ function CmdBtn({ icon: Icon, label, onClick, testid }) {
     <button
       onClick={onClick}
       data-testid={testid}
-      className="h-14 rounded-lg bg-[#0B0F17] border border-gray-800 hover:border-indigo-500 hover:bg-indigo-500/10 flex flex-col items-center justify-center gap-1 text-gray-300 transition-colors"
+      className="h-14 rounded-lg bg-[#0B0D10] border border-[#22262E] hover:border-[#7FD113] hover:bg-[#7FD113]/10 flex flex-col items-center justify-center gap-1 text-gray-300 transition-colors"
     >
       <Icon size={16} />
       <span className="text-[10px]">{label}</span>

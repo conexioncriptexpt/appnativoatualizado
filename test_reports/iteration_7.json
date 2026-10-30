@@ -1,0 +1,42 @@
+{
+  "summary": "Tested the device registry feature (saved devices, rename, delete) end to end. Backend: 6 of 6 pytest tests pass in /app/backend/tests/test_devices.py (3 runs in a row after adding retry logic to the test sim). Covered: GET /api/devices fields and backfill, socket device:register upsert, connections and last_seen, the online flag, PUT and DELETE admin-only (technician gets 403), 404 and 422, renaming a live device (queue:update shows the new name and the custom name survives a reconnect), and deleting an offline device (its sessions and logs are removed and it comes back as new). Deleting a live device keeps the session running with the original name. Frontend: devices-link works for admin and technician. /crm/aparelhos shows the list, count, search (name, platform and an empty state), LIGADO/DESLIGADO badges, renaming with Enter or the save button plus a toast, Escape to cancel, the delete dialog and confirm, and the renamed name in the Fila de Atendimento. The technician sees 0 rename and 0 delete buttons. One real bug found: a race in device_register leaves ghost 'waiting' sessions in the queue (it existed before this feature but shows up in the queue).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "socket device:register", "issue": "Race condition. When the device socket drops while device_register is still running its awaits, the disconnect handler runs first and does nothing because DEVICE_SIDS has no entry yet. Then device_register still inserts the session as 'waiting', writes DEVICE_SIDS[sid] for a dead sid, and sio.enter_room raises 'ValueError: sid is not connected to requested namespace' (traceback in backend.err.log). Result: ghost 'waiting' sessions that stay in the Fila until the backend restarts, a leaked DEVICE_SIDS entry (it can mark the device online=true for good), and connections is still incremented. Reproduced 2 times in 25 register attempts (about 8%) on the preview ingress. The UI queue showed duplicate entries (2x 'TEST Phone Final', 2x 'TEST UI Delete') plus stale ones."},
+      {"endpoint": "DELETE /api/devices/{id}", "issue": "Only removes sessions with status 'ended', so ghost waiting sessions from the race above survive the delete."},
+      {"endpoint": "socket device:register", "issue": "Every reconnect (including transport drops) adds a new session and increments connections, so the 'N ligações' counter is inflated by network blips."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Devices DeviceRow rename", "issue": "Escape cancels editing but does not reset the local name state (only the X button does). Reopening rename shows the discarded text ('SHOULD NOT SAVE') instead of the current name. The name state is also only set once from d.display_name, so it goes stale after a rename by someone else or after a reload.", "selector": "[data-testid='device-rename-input']", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Queue after a device reconnect", "issue": "Duplicate or ghost queue items caused by the backend device_register race (see backend minor issue).", "affected_selectors": ["[data-testid='queue-session-item']"]}
+    ],
+    "design_issues": [
+      {"screen": "/crm/aparelhos", "issues": ["Plurals: shows '1 ligações' and '1 ligados agora'. Should be '1 ligação' and '1 ligado agora'."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_devices.py", "/app/test_reports/pytest/pytest_devices.xml"],
+  "action_items": [
+    "device_register: after the awaits, check the sid is still connected (or wrap enter_room in try/except). If it is gone, mark the just-inserted session 'ended' and do not leave it in DEVICE_SIDS. Better: call enter_room and set DEVICE_SIDS before the DB writes, and have disconnect handle it.",
+    "DELETE /api/devices: also end or clean up non-live 'waiting/assigned' sessions whose session id is not in DEVICE_SIDS.",
+    "Devices.jsx: reset name to d.display_name when Escape is pressed or rename is opened (or sync it with useEffect on d.display_name).",
+    "Fix the pluralisation of ligação/ligado."
+  ],
+  "critical_code_review_comments": [
+    "server.py device_register: the order of DB insert, then DEVICE_SIDS write, then enter_room with no guard causes the ghost sessions and the registry leak.",
+    "list_devices runs sessions.distinct over all live session ids on every call and the page polls every 10s. Fine at the current scale.",
+    "A device_id containing '/' would break the PUT/DELETE path even with encodeURIComponent (FastAPI does not match %2F). Low risk."
+  ],
+  "updated_files": ["/app/backend/tests/test_devices.py"],
+  "success_rate": {"backend": "100% (6/6) of feature tests; 1 minor race bug found separately", "frontend": "95% (all requested flows pass; minor Escape stale-input bug)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026, tech1@cryptoconex.com / Tech@1234 (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "All TEST_dev_*, TEST_loop_* and TEST_ui_* devices were deleted via the API, and their 4 ghost waiting sessions were marked ended directly in the DB. Sims were stopped.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Use test_devices.py for regression. Its Sim class retries registration because the preview ingress drops about 8% of fresh WebSocket connections right after connect. After the main agent fixes the race, run /tmp/reg_loop.py-style loops (25 connect and register cycles) and check that no non-ended sessions remain afterwards.",
+  "rca of the issue": "Ghost queue sessions: the client connects, emits device:register, and the WS drops. The server disconnect() runs while device_register is awaiting find_one_and_update/insert_one, and DEVICE_SIDS has no sid yet, so nothing is ended. device_register then resumes, inserts the session (status waiting), sets DEVICE_SIDS[sid], and sio.enter_room raises ValueError, so broadcast_queue is skipped. The session stays 'waiting' until restart. Fix: guard with a connected check after the awaits, or try/except around enter_room that ends the session and pops DEVICE_SIDS."
+}

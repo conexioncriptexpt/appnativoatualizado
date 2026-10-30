@@ -100,7 +100,16 @@ async def get_current_user(request: Request) -> dict:
     user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
     if not user:
         raise HTTPException(status_code=401, detail="Utilizador não encontrado")
+    LAST_SEEN[user["id"]] = datetime.now(timezone.utc)
     return user
+
+
+LAST_SEEN = {}  # user_id -> last authenticated request (CRM pages without a socket)
+
+
+def online_operator_count() -> int:
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=30)
+    return len(set(ONLINE_OPERATORS) | {u for u, t in LAST_SEEN.items() if t > cutoff})
 
 
 @api.get("/")
@@ -178,7 +187,9 @@ async def update_user(user_id: str, data: UserUpdateInput, user=Depends(get_curr
     if not target:
         raise HTTPException(status_code=404, detail="Conta não encontrada")
     updates = {}
-    if data.name:
+    if data.name is not None:
+        if not data.name.strip():
+            raise HTTPException(status_code=400, detail="O nome não pode ficar vazio")
         updates["name"] = data.name.strip()
     if data.role:
         if data.role not in ("admin", "technician"):
@@ -210,6 +221,7 @@ async def delete_user(user_id: str, user=Depends(get_current_user)):
     if target["role"] == "admin" and await db.users.count_documents({"role": "admin"}) <= 1:
         raise HTTPException(status_code=400, detail="Tem de existir pelo menos um Administrador")
     await db.users.delete_one({"id": user_id})
+    await db.assist_links.delete_many({"technician_id": user_id})
     # return their open sessions to the queue and drop their live sockets
     await db.sessions.update_many(
         {"assigned_to": user_id, "status": {"$in": ["assigned", "active"]}},
@@ -230,7 +242,9 @@ class MeUpdateInput(BaseModel):
 @api.put("/auth/me")
 async def update_me(data: MeUpdateInput, user=Depends(get_current_user)):
     updates = {}
-    if data.name:
+    if data.name is not None:
+        if not data.name.strip():
+            raise HTTPException(status_code=400, detail="O nome não pode ficar vazio")
         updates["name"] = data.name.strip()
     if data.new_password:
         me = await db.users.find_one({"id": user["id"]})
@@ -411,7 +425,7 @@ async def stats(user=Depends(get_current_user)):
     techs = await db.users.count_documents({"role": "technician"})
     return {
         "waiting": waiting, "active": active, "assigned": assigned,
-        "ended": ended, "technicians": techs, "online_operators": len(ONLINE_OPERATORS),
+        "ended": ended, "technicians": techs, "online_operators": online_operator_count(),
     }
 
 
@@ -583,13 +597,10 @@ async def device_register(sid, data):
     pin = str(uuid.uuid4().int)[:6]
     link = None
     if (data or {}).get("link_code"):
-        link = await db.assist_links.find_one_and_update(
-            {"code": data["link_code"]},
-            {"$inc": {"uses": 1}, "$set": {"last_used": now_iso()}},
-            projection={"_id": 0}, return_document=True,
-        )
+        link = await db.assist_links.find_one({"code": data["link_code"]}, {"_id": 0})
     if link and not saved.get("custom_name"):
         name = link["label"]
+        await db.devices.update_one({"device_id": device_id}, {"$set": {"custom_name": name}})
     doc = {
         "id": session_id, "device_id": device_id, "platform": platform,
         "name": name, "pin": pin, "status": "assigned" if link else "waiting",
@@ -603,6 +614,8 @@ async def device_register(sid, data):
         # socket dropped while registering
         await db.sessions.update_one({"id": session_id}, {"$set": {"status": "ended", "ended_at": now_iso()}})
         return
+    if link:
+        await db.assist_links.update_one({"code": link["code"]}, {"$inc": {"uses": 1}, "$set": {"last_used": now_iso()}})
     await log_event(session_id, "device_registered", {"platform": platform, "device_id": device_id})
     doc.pop("_id", None)
     await sio.emit("device:registered", {"session_id": session_id, "pin": pin, "iceServers": ICE_SERVERS}, to=sid)

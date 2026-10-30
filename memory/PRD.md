@@ -89,3 +89,22 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - Android: handleCommand converte nx/ny para píxeis reais; drag/scroll via dispatchGesture; teclado no campo em foco.
 - Windows: InputSimulator reescrito com SendInput absoluto (sem problemas de DPI) + Unicode.
 - Testado: iteration_6 (100%) com dispositivo simulado. Native compilado localmente (kotlinc + dotnet).
+
+## Iteração 8 (2026-10-30 · Dispositivos guardados + Redesign completo)
+- Dispositivos: coleção `devices` (upsert no device:register, backfill do histórico). GET /api/devices (todos),
+  PUT/DELETE /api/devices/{id} (só admin). Nome personalizado aparece na fila/histórico. Apagar = volta como novo.
+  Corrigida corrida no device:register (sessões fantasma) + fecha sessões antigas do mesmo aparelho ao religar.
+- Redesign (referência do utilizador): fundo #0B0D10, verde-lima #7FD113, logo «APP de Suporte Técnico»
+  (/logo-app.png, /logo-app-sm.png com fundo transparente). CrmLayout com menu lateral + barra de topo
+  (TEMPO REAL ATIVO, NOVOS/ATIVAS/ONLINE, relógio Lisboa, utilizador).
+- Novas páginas: /crm/dashboard (GET /api/stats/overview), /crm/atendimentos (histórico + logs),
+  /crm/links (Links de Assistência: /?l=CODE encaminha o utilizador direto para o técnico; POST/GET/DELETE /api/links,
+  GET /api/public/links/{code}), /crm/configuracoes (PUT /api/auth/me nome/palavra-passe; som de alerta).
+- Página pública: «Bem-vindo ao Crypto Conex», CONECTAR lima + INSTALAR APP, «Som ligado», cartão privacidade.
+- ONLINE conta técnicos com pedido autenticado nos últimos 30s (não só socket).
+- Testado: iteration_8 (backend 13/13 após correções, frontend 97%→ correções aplicadas).
+
+## Backlog
+- P1: Assinar APK release; app Windows com janela de botão único.
+- P2: Dividir Dashboard.jsx (console) em componentes; agregação por data no overview quando os dados crescerem.
+

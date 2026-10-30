@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { UserPlus, Trash2, KeyRound, ShieldCheck, Wrench, Circle } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import CrmLayout from "@/components/CrmLayout";
+import CrmLayout, { PageHeader } from "@/components/CrmLayout";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -135,12 +135,13 @@ export default function Team() {
 
   return (
     <CrmLayout>
-
-      <div className="max-w-6xl mx-auto p-5 grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="p-5 lg:p-8 max-w-7xl">
+        <PageHeader title="Equipa" subtitle="Contas de Técnicos e Administradores" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-1"><CreateForm onCreated={load} /></div>
-        <section className="lg:col-span-2 bg-[#121419] border border-[#22262E] rounded-xl p-5">
+        <section className="lg:col-span-2 bg-[#121419] border border-[#22262E] rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="font-display font-bold text-white text-xl">Equipa</h1>
+            <h2 className="font-display font-bold text-white text-lg">Membros</h2>
             <span className="text-xs font-mono text-gray-500" data-testid="team-count">
               {members.length} contas · {admins} admin · {members.length - admins} técnicos
             </span>
@@ -151,6 +152,7 @@ export default function Team() {
             ))}
           </div>
         </section>
+      </div>
       </div>
 
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>

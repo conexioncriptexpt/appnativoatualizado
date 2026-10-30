@@ -5,10 +5,14 @@ import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import CrmLayout, { PageHeader, card, input, btnPrimary } from "@/components/CrmLayout";
 import { fmtDateTime } from "@/lib/datetime";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const linkUrl = (code) => `${window.location.origin}/?l=${code}`;
 
-function CreateLink({ isAdmin, technicians, onCreated }) {
+function CreateLink({ isAdmin, technicians, ready, onCreated }) {
   const [label, setLabel] = useState("");
   const [tech, setTech] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,7 +44,7 @@ function CreateLink({ isAdmin, technicians, onCreated }) {
           </select>
         </div>
       )}
-      <button disabled={busy} className={btnPrimary} data-testid="link-create-submit"><Plus size={16} /> Criar link</button>
+      <button disabled={busy || !ready} className={btnPrimary} data-testid="link-create-submit"><Plus size={16} /> Criar link</button>
     </form>
   );
 }
@@ -75,15 +79,19 @@ export default function AssistLinks() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [links, setLinks] = useState([]);
-  const [technicians, setTechnicians] = useState([]);
+  const [technicians, setTechnicians] = useState(null);
+  const [toDelete, setToDelete] = useState(null);
 
   const load = useCallback(() => api.get("/links").then((r) => setLinks(r.data)).catch(() => {}), []);
   useEffect(() => {
     load();
-    if (isAdmin) api.get("/technicians").then((r) => setTechnicians(r.data)).catch(() => {});
+    if (isAdmin) api.get("/technicians").then((r) => setTechnicians(r.data)).catch(() => setTechnicians([]));
+    else setTechnicians([]);
   }, [load, isAdmin]);
 
-  const remove = async (l) => {
+  const remove = async () => {
+    const l = toDelete;
+    setToDelete(null);
     try {
       await api.delete(`/links/${l.code}`);
       toast.success("Link apagado.");
@@ -98,12 +106,24 @@ export default function AssistLinks() {
           title="Links de Assistência"
           subtitle="Envie um link pessoal: quem o abrir e carregar em CONECTAR vai direto para o técnico escolhido."
         />
-        <CreateLink isAdmin={isAdmin} technicians={technicians} onCreated={load} />
+        <CreateLink isAdmin={isAdmin} technicians={technicians || []} ready={technicians !== null} onCreated={load} />
         <div className="space-y-2" data-testid="links-list">
-          {links.map((l) => <LinkRow key={l.code} l={l} onDelete={remove} />)}
+          {links.map((l) => <LinkRow key={l.code} l={l} onDelete={setToDelete} />)}
           {!links.length && <div className={`${card} text-center text-sm text-[#6B717C] py-14`} data-testid="links-empty">Ainda não criou nenhum link.</div>}
         </div>
       </div>
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent data-testid="link-delete-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apagar o link de «{toDelete?.label}»?</AlertDialogTitle>
+            <AlertDialogDescription>Quem tiver este link deixa de ser encaminhado para o técnico.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="link-delete-cancel">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={remove} className="bg-red-600 hover:bg-red-700" data-testid="link-delete-confirm">Apagar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </CrmLayout>
   );
 }

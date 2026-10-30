@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { Smartphone, Monitor, Globe, Pencil, Trash2, Check, X, Circle, Search } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
-import CrmLayout from "@/components/CrmLayout";
+import CrmLayout, { PageHeader } from "@/components/CrmLayout";
 import { fmtDateTime } from "@/lib/datetime";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -111,12 +111,12 @@ export default function Devices() {
 
   return (
     <CrmLayout>
-
-      <div className="max-w-5xl mx-auto p-5">
-        <section className="bg-[#121419] border border-[#22262E] rounded-xl p-5">
+      <div className="p-5 lg:p-8 max-w-7xl">
+        <PageHeader title="Dispositivos" subtitle="Todos os aparelhos que já se ligaram ficam guardados aqui" />
+        <section className="bg-[#121419] border border-[#22262E] rounded-2xl p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
-              <h1 className="font-display font-bold text-white text-xl">Aparelhos guardados</h1>
+              <h2 className="font-display font-bold text-white text-lg">Aparelhos guardados</h2>
               <span className="text-xs font-mono text-gray-500" data-testid="devices-count">
                 {devices.length} {devices.length === 1 ? "aparelho" : "aparelhos"} · {online} {online === 1 ? "ligado" : "ligados"} agora
               </span>

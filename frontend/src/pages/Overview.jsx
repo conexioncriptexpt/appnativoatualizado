@@ -26,11 +26,11 @@ function StatCard({ icon: Icon, label, value, accent, testid }) {
 function WeekChart({ data }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   return (
-    <div className="flex items-end gap-3 h-48" data-testid="overview-week-chart">
+    <div className="flex items-end gap-1.5 sm:gap-3 h-48 min-w-0 overflow-hidden" data-testid="overview-week-chart">
       {data.map((d) => {
         const day = new Date(d.date + "T12:00:00").toLocaleDateString("pt-PT", { weekday: "short" }).replace(".", "");
         return (
-          <div key={d.date} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+          <div key={d.date} className="flex-1 min-w-0 flex flex-col items-center gap-2 h-full justify-end">
             <span className="text-xs font-mono text-gray-300">{d.count}</span>
             <div
               className="w-full rounded-t-lg bg-gradient-to-t from-[#4E820B] to-[#7FD113] transition-[height] duration-700"

@@ -15,7 +15,7 @@ const GUIDES = {
     icon: Smartphone,
     file: "Aplicação Android (.apk)",
     steps: [
-      { t: "Descarregue a aplicação", d: "Carregue no botão azul acima. O ficheiro fica na pasta Transferências." },
+      { t: "Descarregue a aplicação", d: "Carregue no botão verde acima. O ficheiro fica na pasta Transferências." },
       { t: "Abra o ficheiro", d: "Toque na notificação ou abra a pasta Transferências e toque em «CryptoConex»." },
       { t: "Permita a instalação", d: "Se aparecer «Fontes desconhecidas», toque em Definições e ative «Permitir desta origem». Volte atrás e toque em Instalar." },
       { t: "Abra o Crypto Conex", d: "Toque no grande botão CONECTAR." },
@@ -29,7 +29,7 @@ const GUIDES = {
     icon: Monitor,
     file: "Aplicação Windows (.exe)",
     steps: [
-      { t: "Descarregue a aplicação", d: "Clique no botão azul acima. O ficheiro «CryptoConexPC.exe» fica na pasta Transferências." },
+      { t: "Descarregue a aplicação", d: "Clique no botão verde acima. O ficheiro «CryptoConexPC.exe» fica na pasta Transferências." },
       { t: "Abra o ficheiro", d: "Faça duplo clique em «CryptoConexPC.exe»." },
       { t: "Se o Windows avisar", d: "No ecrã azul «O Windows protegeu o seu PC», clique em «Mais informações» e depois em «Executar mesmo assim»." },
       { t: "Encontre o ícone", d: "A aplicação fica junto ao relógio, no canto inferior direito. Se não a vir, clique na pequena seta ^." },

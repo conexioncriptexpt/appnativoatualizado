@@ -1,0 +1,48 @@
+{
+  "summary": "Iteration 8: tested the CRM redesign (sidebar layout and 7 pages), the Assistance Links feature, PUT /auth/me, the stats overview, and a retest of the iteration_7 device fixes. Backend: 12 of 13 pytest tests pass (new test_crm_redesign.py plus test_devices.py). The register-race loop passed 4 times in a row with no ghost sessions. DELETE /devices removes all non-live sessions. Only failure: a whitespace-only name on PUT /auth/me is accepted and saved as an empty name. Frontend: everything requested works with no JS page errors. Covered: sidebar navigation and highlight for admin and technician (no nav-team for the technician; /crm/equipa redirects them), top-bar stats, clock, user name and logout, and the Live Console regression with the native sim (queue 'Aparelhos ligados', frame view, home/click/message commands received by the device, alert sound played once). Dashboard cards and charts, Atendimentos filters, search, logs drawer and close. Links: create (technician select), row URL '<origin>/?l=<code>', copy, share (wa.me), delete, banner and invalid banner. Link device flow: session 'assigned' to the link's technician, named with the label, uses incremented. Settings: name (top bar updates), wrong and correct password (reverted), sound toggle persisted in localStorage, sound test. Public page: exactly CONECTAR and INSTALAR APP, voice toggle, logo, privacy card. Login and /instrucoes use the dark theme. Team create and delete. Devices: Escape resets the rename input; '1 ligação' plural confirmed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/auth/me", "issue": "name='   ' passes min_length=1 and is stripped to '' -> user's name becomes empty (200). Validate after strip (400). Same pattern exists in PUT /api/users/{id} (data.name truthy then strip)."},
+      {"endpoint": "socket device:register (link_code)", "issue": "The link's uses/last_used is incremented before the 'socket dropped mid-registration' check, so dropped or retried registrations inflate the uses count (saw 3 uses for 1 effective connection)."},
+      {"endpoint": "POST /api/links / device:register", "issue": "A link's technician_id/technician_name is not checked when the technician is deleted. Sessions from that link get assigned to a non-existent user, and nobody except admins sees them, because technicians only see waiting sessions or their own. Fall back to 'waiting' if the technician no longer exists, or delete or reassign the user's links when the user is deleted."},
+      {"endpoint": "GET /api/stats online_operators", "issue": "Counts only operators with an open socket. The socket exists only on the Consola ao Vivo page, so ONLINE shows 0 when the operator is on other CRM pages."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Overview (Dashboard) week chart on mobile 390px", "issue": "The chart overflows horizontally (document scrollWidth 411 > 390) and the last bars are cut off. Add min-w-0/overflow-hidden or make the bars flex-shrink.", "selector": "[data-testid=overview-week-chart]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Link-routed device naming", "issue": "The queue and history show the link label (e.g. 'D. Maria'), but /crm/aparelhos shows the device's original name ('QA Remote') because the label is not saved on the device. This is inconsistent with 'custom name shown everywhere'. Consider using the label as the device's custom_name on first link use, or showing it in Devices.", "affected_selectors": ["[data-testid=device-display-name]", "[data-testid=queue-session-item]"]}
+    ],
+    "design_issues": [
+      {"screen": "Equipa (/crm/equipa) and Dispositivos (/crm/aparelhos)", "issues": ["These pages are centred (mx-auto) and have no PageHeader title/subtitle. Dashboard, Atendimentos, Links and Configurações are left-aligned with a big page title, so the layout is inconsistent inside the new CRM shell."]},
+      {"screen": "Instruções (/instrucoes)", "issues": ["Step 1 text says 'Carregue no botão azul acima' but the download button is now lime green."]},
+      {"screen": "Links de Assistência", "issues": ["Delete happens immediately with no confirmation (Devices and Team use confirm dialogs)."]},
+      {"screen": "Desktop 1920 content pages", "issues": ["Content is capped at max-w-3xl/5xl and left-aligned, which leaves a large empty right area. Acceptable, but consider wider containers."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_crm_redesign.py", "/app/backend/tests/test_devices.py", "/app/test_reports/pytest/pytest_iter8.xml"],
+  "action_items": [
+    "PUT /api/auth/me (and PUT /api/users/{id}): reject names that are empty after strip.",
+    "device_register: increment the link's uses only after the session is confirmed live (after the DEVICE_SIDS check).",
+    "Handle links whose technician was deleted (fall back to 'waiting' or remove links when the user is deleted).",
+    "Fix the overview-week-chart overflow on mobile.",
+    "Make the Team and Devices pages consistent with the new PageHeader layout; fix the 'botão azul' copy in Instructions; optionally add a confirm before deleting a link.",
+    "Optional: store the link label as the device custom_name so the Devices page matches the queue."
+  ],
+  "critical_code_review_comments": [
+    "server.py device_register: the race fix looks right. DEVICE_SIDS is claimed before the awaits, stale open sessions of the same device_id are ended, and a session dropped mid-registration is ended (seen live: a session ended 0.7ms after insert when the ingress dropped the WebSocket, with no ghost).",
+    "stats_overview: loads up to 20000 sessions into memory and uses an inline zoneinfo import. Fine for now; use a $group aggregation by date when the data grows.",
+    "Dashboard.jsx is 519 lines and close to the size limit; consider splitting the queue, viewer and commands panels.",
+    "AssistLinks: the technician <select> uses a native select (fine), but its options load asynchronously; a quick submit before /technicians resolves silently creates the link for the admin themself."
+  ],
+  "updated_files": ["/app/backend/tests/test_crm_redesign.py"],
+  "success_rate": {"backend": "92% (12/13)", "frontend": "97% (all requested flows pass; only minor design and mobile chart overflow issues)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026, tech1@cryptoconex.com / Tech@1234 (both verified unchanged at the end; tech1's name and password were changed and reverted)",
+  "seed_data_creation": "None left over. TEST_ devices, links and the throwaway team account were deleted, and the simulators were stopped. History contains ended sessions of the qa-rc device (QA Remote).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run pytest from /app/backend/tests (pytest.ini forces -n 2). test_crm_redesign.py covers links, the public link, link device flow, auth/me (reverts tech1's password and name), the stats overview and the register race loop. test_update_me_whitespace_name fails until the strip validation is fixed. For UI console tests, launch /tmp-style sims with nohup setsid (a background '&' inside execute_bash blocks until it finishes). The ingress drops roughly 8% of fresh WebSockets, so a sim may silently end without REGISTERED; just restart it. The login testids are crm-login-form-email-input, crm-login-form-password-input and crm-login-form-submit-button."
+}

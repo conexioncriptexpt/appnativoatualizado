@@ -88,7 +88,7 @@ export default function CrmLayout({ children }) {
     <div className="min-h-screen bg-[#0B0D10] text-gray-200 flex crm-shell">
       <aside className={`fixed lg:sticky top-0 z-40 h-screen w-64 shrink-0 bg-[#0B0D10] border-r border-[#1A1D23] flex flex-col transition-transform ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="h-24 flex items-center justify-between px-5">
-          <Logo height={54} />
+          <Logo height={64} />
           <button className="lg:hidden text-gray-400" onClick={() => setOpen(false)} aria-label="Fechar menu"><X size={20} /></button>
         </div>
         <Sidebar isAdmin={isAdmin} onNavigate={() => setOpen(false)} />

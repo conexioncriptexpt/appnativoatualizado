@@ -81,3 +81,11 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - Causa: apps nativas ligavam-se ao servidor de pré-visualização (BD separada). Agora usam https://crypto-conex.emergent.host
   (SocketManager.kt / Program.cs). Testado em produção com dispositivo simulado (fila, frames, desligar) — iteration_5.
 - CRM limpa o último frame quando o dispositivo desliga.
+
+## Iteração 7 (2026-10-30 · Controlo remoto direto no ecrã)
+- CRM: camada RemoteControlLayer sobre o visualizador (coordenadas normalizadas 0..1 dentro da imagem):
+  clique, arrastar (drag), manter premido (longpress), clique direito, roda (scroll ±120), teclado (texto agrupado,
+  Enter/Backspace/setas/F-keys, Ctrl/Alt combos). Feedback visual de toque.
+- Android: handleCommand converte nx/ny para píxeis reais; drag/scroll via dispatchGesture; teclado no campo em foco.
+- Windows: InputSimulator reescrito com SendInput absoluto (sem problemas de DPI) + Unicode.
+- Testado: iteration_6 (100%) com dispositivo simulado. Native compilado localmente (kotlinc + dotnet).

@@ -181,7 +181,7 @@ export default function Dashboard() {
     const sess = activeRef.current;
     if (!sess) return toast.error("Abra uma sessão primeiro.");
     socketRef.current.emit("command:send", { session_id: sess.id, command });
-    setLogs((l) => [...l, { type: "command", payload: { command, by: user.email }, timestamp: new Date().toISOString() }]);
+    setLogs((l) => [...l.slice(-299), { type: "command", payload: { command, by: user.email }, timestamp: new Date().toISOString() }]);
   };
 
   const requestTree = () => {

@@ -1,0 +1,28 @@
+{
+  "summary": "Ran an end-to-end test of the CRM Remote Control layer on the PREVIEW URL. A simulated android device (qa-rc, 'QA Remote') sent a 540x960 JPEG every 300ms and logged every command:receive to /tmp/rc_cmds.jsonl. Logged in as admin, opened the session and confirmed AO VIVO. remote-control-layer covered the viewer (900x882) and the image sat inside it as an object-contain letterbox (496x882 at x=712). Every gesture produced the expected payload: click at the image centre gave {click, nx:0.5, ny:0.5}. Click at 5%/5% gave {click, 0.05, 0.05}. Click in the black letterbox sent nothing. Drag upward by 30% of the image height gave {drag, 0.5, 0.65 -> 0.5, 0.35, duration 499}. Holding 1s gave {longpress, 0.6008, 0.5567} with no extra click. Right click gave {rightclick, 0.5, 0.5}. Wheel down gave {scroll, delta -120} and wheel up x3 gave {scroll, delta 360}, so scroll events are batched. Typing 'ola' gave a single {key, text:'ola'}. Enter gave {key:'Enter'}, Backspace gave {key:'Backspace'} and Ctrl+A gave {key:'a', ctrl:true}. Space and ArrowDown were forwarded to the device without scrolling the page or selecting text (scrollY stayed 0, selection length 0). The hint changed from 'Clique no ecrã para controlar' to 'Controlo ativo · teclado ligado' on focus. crm-command-back-button still sends {type:'back'}. I also reviewed the Android and Windows native handlers; they map coordinates and handle all gesture types correctly (notes below). The simulated device was disconnected at the end.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/rc_device_sim.py"],
+  "action_items": [
+    "Optional: on Android, keyInput ignores Ctrl/Alt shortcuts (e.g. Ctrl+A), arrows and Tab. It also always appends or removes text at the end of the field, ignoring the cursor position. Document this or map the common shortcuts (ACTION_SET_SELECTION for Ctrl+A).",
+    "Optional: the Android 'scroll' handler uses resources.displayMetrics.heightPixels, while point() uses getRealMetrics. Use the same metrics in both for consistency."
+  ],
+  "critical_code_review_comments": [
+    "RemoteControlLayer: the wheel useEffect has no dependency array, so the listener is removed and re-added on every render (every ~300ms frame). It works but is wasteful. Use refs and an empty dependency array.",
+    "RemoteControlLayer: Tab is preventDefault'ed and forwarded, so keyboard users cannot Tab out of the layer (focus trap). Consider Esc or a click outside to release focus.",
+    "RemoteControlLayer: the move threshold is computed in normalized units, so it is anisotropic for portrait frames (x is more sensitive in px than y). This is minor.",
+    "Dashboard sendCommand adds an entry to the logs state for every gesture or key. Long sessions will grow this array without limit; consider capping it.",
+    "Windows InputSimulator: ABSOLUTE without the VIRTUALDESK flag maps to the primary monitor only. That is fine if capture is primary-only. longpress uses Thread.Sleep(700) on the command thread, which blocks other commands for that time.",
+    "Android: rightclick is mapped to longPress, which is a reasonable choice. doubleclick is implemented as two taps 120ms apart."
+  ],
+  "updated_files": ["/app/backend/tests/rc_device_sim.py (new)"],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "seed_data_creation": "Created one preview session for device_id qa-rc. The device was disconnected at the end, so the session ended.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Start the simulator with: cd /app/backend/tests && (setsid nohup python rc_device_sim.py 600 > /tmp/rc_sim.log 2>&1 < /dev/null &). Commands are logged to /tmp/rc_cmds.jsonl. Login selectors: crm-login-form-email-input, crm-login-form-password-input, crm-login-form-submit-button. Then click queue-session-item has_text 'QA Remote' and wait for native-frame-view and rtc-state-badge 'AO VIVO'. Compute the image rect from naturalWidth/Height with object-contain math."
+}

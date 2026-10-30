@@ -151,7 +151,10 @@ class CryptoConexAccessibilityService : AccessibilityService() {
             }
             "scroll" -> {
                 val (x, y) = point(cmd)
-                val h = resources.displayMetrics.heightPixels
+                val h = (getSystemService(WINDOW_SERVICE) as android.view.WindowManager).let {
+                    val m = android.util.DisplayMetrics()
+                    @Suppress("DEPRECATION") it.defaultDisplay.getRealMetrics(m); m.heightPixels
+                }
                 val dist = (h * 0.25).toInt() * (if (cmd.optInt("delta") < 0) -1 else 1)
                 swipe(x, y, x, (y + dist).coerceIn(1, h - 1), 250)
             }

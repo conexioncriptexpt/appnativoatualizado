@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Keyboard } from "lucide-react";
 
 const SPECIAL_KEYS = new Set([
-  "Enter", "Backspace", "Tab", "Escape", "Delete", "Home", "End", "PageUp", "PageDown",
+  "Enter", "Backspace", "Escape", "Delete", "Home", "End", "PageUp", "PageDown",
   "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
   "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
 ]);
@@ -30,6 +30,10 @@ export function RemoteControlLayer({ getMedia, onCommand }) {
   const wheel = useRef({ acc: 0, pos: null, timer: null });
   const [focused, setFocused] = useState(false);
   const [ripples, setRipples] = useState([]);
+  const cmdRef = useRef(onCommand);
+  cmdRef.current = onCommand;
+  const mediaRef = useRef(getMedia);
+  mediaRef.current = getMedia;
 
   const point = (e) => {
     const m = getMedia();
@@ -102,7 +106,8 @@ export function RemoteControlLayer({ getMedia, onCommand }) {
     const el = layerRef.current;
     const onWheel = (e) => {
       e.preventDefault();
-      const p = point(e);
+      const m = mediaRef.current();
+      const p = m ? normalize(m, e.clientX, e.clientY) : null;
       if (!p) return;
       const w = wheel.current;
       w.acc += e.deltaY;
@@ -110,13 +115,13 @@ export function RemoteControlLayer({ getMedia, onCommand }) {
       clearTimeout(w.timer);
       w.timer = setTimeout(() => {
         const notches = Math.max(1, Math.round(Math.abs(w.acc) / 100));
-        onCommand({ type: "scroll", nx: w.pos.nx, ny: w.pos.ny, delta: -Math.sign(w.acc) * notches * 120 });
+        cmdRef.current({ type: "scroll", nx: w.pos.nx, ny: w.pos.ny, delta: -Math.sign(w.acc) * notches * 120 });
         w.acc = 0;
       }, 120);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  });
+  }, []);
 
   const onKeyDown = (e) => {
     const mods = { ctrl: e.ctrlKey, alt: e.altKey, shift: e.shiftKey };

@@ -221,6 +221,56 @@ async def delete_user(user_id: str, user=Depends(get_current_user)):
     return {"ok": True}
 
 
+class DeviceRenameInput(BaseModel):
+    name: str = Field(min_length=1, max_length=60)
+
+
+def online_session_ids() -> set:
+    return set(DEVICE_SIDS.values())
+
+
+@api.get("/devices")
+async def list_devices(user=Depends(get_current_user)):
+    devices = await db.devices.find({}, {"_id": 0}).sort("last_seen", -1).to_list(2000)
+    live = online_session_ids()
+    if live:
+        online = await db.sessions.distinct("device_id", {"id": {"$in": list(live)}})
+    else:
+        online = []
+    for d in devices:
+        d["online"] = d["device_id"] in online
+        d["display_name"] = d.get("custom_name") or d.get("original_name")
+    return devices
+
+
+@api.put("/devices/{device_id}")
+async def rename_device(device_id: str, data: DeviceRenameInput, user=Depends(get_current_user)):
+    require_admin(user)
+    name = data.name.strip()
+    res = await db.devices.update_one({"device_id": device_id}, {"$set": {"custom_name": name}})
+    if not res.matched_count:
+        raise HTTPException(status_code=404, detail="Aparelho não encontrado")
+    await db.sessions.update_many({"device_id": device_id}, {"$set": {"name": name}})
+    await broadcast_queue()
+    return {"ok": True, "display_name": name}
+
+
+@api.delete("/devices/{device_id}")
+async def delete_device(device_id: str, user=Depends(get_current_user)):
+    require_admin(user)
+    device = await db.devices.find_one({"device_id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Aparelho não encontrado")
+    ended = await db.sessions.distinct("id", {"device_id": device_id, "status": "ended"})
+    await db.logs.delete_many({"session_id": {"$in": ended}})
+    await db.sessions.delete_many({"id": {"$in": ended}})
+    # a live session keeps running, but loses the custom name
+    await db.sessions.update_many({"device_id": device_id}, {"$set": {"name": device.get("original_name")}})
+    await db.devices.delete_one({"device_id": device_id})
+    await broadcast_queue()
+    return {"ok": True}
+
+
 @api.get("/technicians")
 async def list_technicians(user=Depends(get_current_user)):
     techs = await db.users.find({"role": "technician"}, {"_id": 0, "password_hash": 0}).to_list(500)
@@ -275,6 +325,21 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
     await db.sessions.create_index("id", unique=True)
+    await db.devices.create_index("device_id", unique=True)
+    # backfill the device registry from session history (one-off)
+    if await db.devices.count_documents({}) == 0:
+        async for g in db.sessions.aggregate([
+            {"$sort": {"created_at": 1}},
+            {"$group": {"_id": "$device_id", "platform": {"$last": "$platform"}, "name": {"$last": "$name"},
+                        "first_seen": {"$first": "$created_at"}, "last_seen": {"$last": "$created_at"},
+                        "connections": {"$sum": 1}}},
+        ]):
+            if not g["_id"]:
+                continue
+            await db.devices.update_one({"device_id": g["_id"]}, {"$setOnInsert": {
+                "device_id": g["_id"], "platform": g["platform"], "original_name": g["name"],
+                "custom_name": None, "first_seen": g["first_seen"], "last_seen": g["last_seen"],
+                "connections": g["connections"]}}, upsert=True)
     # socket registries are in memory: sessions still open from a previous run have no device
     await db.sessions.update_many(
         {"status": {"$in": ["waiting", "assigned", "active"]}},
@@ -387,6 +452,14 @@ async def device_register(sid, data):
     device_id = (data or {}).get("device_id") or str(uuid.uuid4())
     platform = (data or {}).get("platform", "web")
     name = (data or {}).get("name") or f"Dispositivo {device_id[:6]}"
+    saved = await db.devices.find_one_and_update(
+        {"device_id": device_id},
+        {"$set": {"platform": platform, "original_name": name, "last_seen": now_iso()},
+         "$setOnInsert": {"device_id": device_id, "custom_name": None, "first_seen": now_iso()},
+         "$inc": {"connections": 1}},
+        upsert=True, return_document=True, projection={"_id": 0},
+    )
+    name = saved.get("custom_name") or name
     session_id = str(uuid.uuid4())
     pin = str(uuid.uuid4().int)[:6]
     doc = {

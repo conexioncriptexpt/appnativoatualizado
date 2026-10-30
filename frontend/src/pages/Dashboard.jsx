@@ -214,6 +214,13 @@ export default function Dashboard() {
               <Stat label="ONLINE" value={stats.online_operators} color="text-indigo-300" />
             </div>
           )}
+          <Link
+            to="/crm/aparelhos"
+            data-testid="devices-link"
+            className="h-9 px-3 rounded-lg border border-gray-700 flex items-center gap-2 text-sm hover:bg-gray-800 transition-colors"
+          >
+            <Smartphone size={16} /> Aparelhos
+          </Link>
           {isAdmin && (
             <Link
               to="/crm/equipa"

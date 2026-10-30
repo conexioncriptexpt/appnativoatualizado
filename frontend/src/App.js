@@ -5,6 +5,7 @@ import PublicConnect from "@/pages/PublicConnect";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Team from "@/pages/Team";
+import Devices from "@/pages/Devices";
 import Instructions from "@/pages/Instructions";
 import "@/App.css";
 
@@ -35,6 +36,14 @@ function App() {
               element={
                 <Protected>
                   <Dashboard />
+                </Protected>
+              }
+            />
+            <Route
+              path="/crm/aparelhos"
+              element={
+                <Protected>
+                  <Devices />
                 </Protected>
               }
             />

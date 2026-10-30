@@ -32,7 +32,7 @@ namespace CryptoConex.PC
 
         public TrayAppContext()
         {
-            _client = new SignalingClient("https://crypto-conex--6nq9iiht.preview.emergentagent.com");
+            _client = new SignalingClient("https://crypto-conex.emergent.host");
             _capture = new ScreenCapture();
 
             var menu = new ContextMenuStrip();

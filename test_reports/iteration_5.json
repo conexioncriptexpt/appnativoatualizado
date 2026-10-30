@@ -1,0 +1,26 @@
+{
+  "summary": "Ran an end-to-end check against PRODUCTION (https://crypto-conex.emergent.host) of the fix for 'nothing appears in the CRM after CONECTAR'. A python-socketio device simulator connected (path api/socketio, websocket) and sent device:register for qa-sim-android / 'QA Android Simulado'. It got device:registered back with a session_id, a pin and 5 iceServers. In the production CRM, logged in as admin, the device showed up in Fila de Atendimento in real time with status AGUARDANDO. The FILA counter went from 0 to 1. Clicking the session sent operator:joined to the device. The device then sent screen:packet JPEG frames, which showed in native-frame-view with the AO VIVO badge, and ATIVAS went to 1. When the device disconnected, the queue item went away, FILA went back to 0 and the 'O utilizador terminou a sessão' toast appeared. Both test sessions are 'ended' in the production DB, and no sessions are left open. Native source grep: SocketManager.kt:15 and Program.cs:35 both point to https://crypto-conex.emergent.host, and native/ contains no other emergent/preview URLs. Not tested: the real APK and Windows builds, which must be rebuilt and reinstalled.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "CRM Live Viewer after device disconnect", "issues": ["The last frame stays on screen under a faded spinner and 'Sem transmissão' overlay. The red frame makes the overlay text hard to read. Clear the frame (frameSrc) when device:disconnected arrives."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/prod_device_sim.py", "/app/backend/tests/device_sim.py"],
+  "action_items": [
+    "Rebuild and reinstall the Android APK and Windows exe. Devices running old builds still register in the preview DB.",
+    "Optional: clear the stale frame in the viewer when device:disconnected arrives."
+  ],
+  "critical_code_review_comments": [
+    "The backend URL is hardcoded in the native apps, which caused this bug. Move it to BuildConfig (Android buildConfigField per flavor) and an appsettings or config file (Windows) so preview and prod builds can't be mixed up.",
+    "DEVICE_SIDS, OPERATOR_SIDS and SESSIONS_ACTIVE are in-memory. With more than one backend replica, or after a restart, sessions can get stuck 'waiting' in the DB. Add a cleanup step at startup (mark leftover sessions as ended)."
+  ],
+  "updated_files": ["/app/backend/tests/prod_device_sim.py (new)"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "Created 2 production sessions for device_id qa-sim-android. Both are now status 'ended'. No users were created or deleted.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Run 'python /app/backend/tests/prod_device_sim.py <seconds>' (start it detached with setsid/nohup) to simulate an Android device on production. It sends frames only after operator:joined, so FILA counts 'waiting' until an operator opens the session. CRM selectors: queue-session-item, native-frame-view, rtc-state-badge. The FILA stat is in the header."
+}

@@ -76,3 +76,8 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
   curto ".service.X", mas o Android guarda o nome completo do pacote. Agora compara via ComponentName (+ instância ativa).
 - Pendente (perguntado ao utilizador, sem resposta): app Windows com janela de botão único + auto-instalação de atalhos;
   guia de permissões Android com voz.
+
+## Iteração 6 (2026-10-30 · Apps não apareciam no CRM publicado)
+- Causa: apps nativas ligavam-se ao servidor de pré-visualização (BD separada). Agora usam https://crypto-conex.emergent.host
+  (SocketManager.kt / Program.cs). Testado em produção com dispositivo simulado (fila, frames, desligar) — iteration_5.
+- CRM limpa o último frame quando o dispositivo desliga.

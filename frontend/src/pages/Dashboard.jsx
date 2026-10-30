@@ -114,6 +114,7 @@ export default function Dashboard() {
     sock.on("device:disconnected", ({ session_id }) => {
       if (activeRef.current?.id === session_id) {
         toast.info("O utilizador terminou a sessão.");
+        setFrameSrc(null);
         setRtcState("ended");
       }
       refresh();

@@ -1,6 +1,7 @@
 package com.cryptoconex.mobile
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
@@ -10,6 +11,7 @@ import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.cryptoconex.mobile.service.CryptoConexAccessibilityService
 import com.cryptoconex.mobile.service.SocketManager
 import com.cryptoconex.mobile.service.SupportForegroundService
 import java.util.UUID
@@ -65,8 +67,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Android guarda o nome completo (pacote/classe) — comparar como ComponentName, não como texto.
     private fun isAccessibilityEnabled(): Boolean {
+        if (CryptoConexAccessibilityService.instance != null) return true
+        val expected = ComponentName(this, CryptoConexAccessibilityService::class.java)
         val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        return enabled.contains("$packageName/.service.CryptoConexAccessibilityService")
+        return enabled.split(':').any { ComponentName.unflattenFromString(it) == expected }
     }
 }

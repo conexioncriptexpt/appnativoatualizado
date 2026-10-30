@@ -1,0 +1,31 @@
+{
+  "summary": "Static/code review of the Android accessibility-detection bug fix (no device available) plus a JVM-semantics Python simulation of the ComponentName matching, and a web regression smoke (public page buttons + admin CRM login). The fix in MainActivity.isAccessibilityEnabled() is CORRECT and resolves the reported bug. Python simulation of ComponentName.unflattenFromString matching produced the expected [true, true, true, false, false]. Web smoke: public / shows exactly 2 buttons (public-connect-button 'CONECTAR', install-app-button 'INSTALAR APP'); admin login (admin@cryptoconex.com) succeeds and the CRM dashboard renders ('Bem-vindo, Super Admin').",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "startup / socket registry", "issue": "Previously-reported orphaned TEST_Native_Android stuck session is no longer in the queue (queue shows 'Nenhuma solicitacao no momento'), so it appears cleared. Still no startup sweep for orphaned waiting/assigned/active sessions - recommend adding one to be safe."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "CRM socket", "issue": "Console shows 'WebSocket connection ... /api/socketio/ failed: WebSocket is closed before the connection is established' once during login; the dashboard still loads and the socket reconnects (polling/upgrade). Non-blocking, pre-existing.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/native/android/tools/accessibility_match_sim.py"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "BUG FIX VERIFIED CORRECT: Old code used enabled.contains(\"$packageName/.service.CryptoConexAccessibilityService\") (short, leading-dot form). Android persists ENABLED_ACCESSIBILITY_SERVICES as the fully-flattened ComponentName 'com.cryptoconex.mobile/com.cryptoconex.mobile.service.CryptoConexAccessibilityService', so the short substring never matched -> service was ON but code reported OFF (root cause of the toast loop). New code returns true if CryptoConexAccessibilityService.instance != null, otherwise splits the setting on ':' and compares each token via ComponentName.unflattenFromString(it) == ComponentName(this, CryptoConexAccessibilityService::class.java). unflattenFromString expands a leading '.' class to the package, so both short and full forms match. Verified against manifest (service android:name='.service.CryptoConexAccessibilityService') and build.gradle.kts (applicationId = namespace = 'com.cryptoconex.mobile'): expected ComponentName = com.cryptoconex.mobile/com.cryptoconex.mobile.service.CryptoConexAccessibilityService. All consistent.",
+    "Minor: isAccessibilityEnabled() splits by ':' which is also how Android stores multiple services - handled correctly. Edge cases (empty string, null) return false as expected.",
+    "Note: the instance != null fast-path only returns true once onServiceConnected has fired; on first launch before the service binds it correctly falls back to reading Settings.Secure."
+  ],
+  "updated_files": ["/app/native/android/tools/accessibility_match_sim.py (new simulation/regression harness, no app code changed)"],
+  "success_rate": {"backend": "100% (smoke)", "frontend": "100% (requested smoke flows)"},
+  "test_credentials": "admin@cryptoconex.com / Conex@2026 (works)",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "The native accessibility bug fix is confirmed correct by static review + ComponentName simulation (/app/native/android/tools/accessibility_match_sim.py -> run with python3, exits 0). APK cannot be run on device in this env; GitHub Actions builds the APK. Web smoke on public / and /crm admin login both pass. No app code changes made.",
+  "rca of the issue": "ROOT CAUSE: Android stores enabled accessibility services in Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES as fully-flattened ComponentNames (package/fully.qualified.Class), e.g. 'com.cryptoconex.mobile/com.cryptoconex.mobile.service.CryptoConexAccessibilityService'. The old check searched for the SHORT leading-dot form '$packageName/.service.CryptoConexAccessibilityService' via String.contains(), which never appears in the stored value, so even with the service ON the app treated it as OFF and showed the toast + opened settings in a loop. MITIGATION (already applied by main agent): compare using ComponentName.unflattenFromString() equality (which normalizes leading-dot class names to the package) and add an instance!=null fast path. Simulation confirms correct behavior for full form, short-dot form, multi-service ':'-joined list, empty string, and null."
+}

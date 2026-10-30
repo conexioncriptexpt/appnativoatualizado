@@ -70,3 +70,9 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
   Android → android-latest/CryptoConex.apk · Windows → windows-latest/CryptoConexPC.exe; depois abre /instrucoes?os=…
   Outros sistemas → /instrucoes para escolher. URLs em REACT_APP_DOWNLOAD_ANDROID_URL / _WINDOWS_URL.
 - EXE Windows com compressão single-file (ficará mais pequeno no próximo build).
+
+## Iteração 5 (2026-10-30 · Bug Acessibilidade Android)
+- Corrigido: CONECTAR pedia sempre para ativar a Acessibilidade mesmo já ativa. Causa: comparação de texto com o nome
+  curto ".service.X", mas o Android guarda o nome completo do pacote. Agora compara via ComponentName (+ instância ativa).
+- Pendente (perguntado ao utilizador, sem resposta): app Windows com janela de botão único + auto-instalação de atalhos;
+  guia de permissões Android com voz.

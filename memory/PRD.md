@@ -63,3 +63,10 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - P1: URL do backend nas apps nativas aponta para o preview; mudar para o domínio de produção após deploy.
 - P2: Um PeerConnection por operador (vários técnicos em simultâneo), invalidar JWT ao mudar palavra-passe,
   gravação de sessão, notas do técnico.
+
+## Iteração 4 (2026-10-30 · Downloads reais)
+- Página pública simplificada: só 2 botões — CONECTAR e INSTALAR APP (removidos controlos de fonte/voz do topo).
+- INSTALAR APP descarrega diretamente da GitHub Release (repo conexioncriptexpt/appnativoatualizado):
+  Android → android-latest/CryptoConex.apk · Windows → windows-latest/CryptoConexPC.exe; depois abre /instrucoes?os=…
+  Outros sistemas → /instrucoes para escolher. URLs em REACT_APP_DOWNLOAD_ANDROID_URL / _WINDOWS_URL.
+- EXE Windows com compressão single-file (ficará mais pequeno no próximo build).

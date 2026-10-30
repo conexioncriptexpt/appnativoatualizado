@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
   ShieldCheck, Download, Wifi, WifiOff, Loader2, CheckCircle2,
-  Plus, Minus, Volume2,
 } from "lucide-react";
 import { createSocket } from "@/lib/socket";
 import { detectOS } from "@/lib/datetime";
@@ -21,18 +20,17 @@ function getDeviceId() {
 }
 
 const OS_LABEL = {
-  android: "Instalar Aplicação Android",
-  windows: "Instalar Aplicação Windows",
-  ios: "Instalar Aplicação",
-  mac: "Instalar Aplicação",
-  other: "Instalar Aplicação",
+  android: "Para telemóvel Android",
+  windows: "Para computador Windows",
+  ios: "Escolha Android ou Windows",
+  mac: "Escolha Android ou Windows",
+  other: "Escolha Android ou Windows",
 };
 
 export default function PublicConnect() {
   const [status, setStatus] = useState("idle"); // idle | connecting | connected | error
   const [sessionId, setSessionId] = useState(null);
   const [pin, setPin] = useState(null);
-  const [fontScale, setFontScale] = useState(1);
   const [online, setOnline] = useState(false);
   const [techWatching, setTechWatching] = useState(false);
   useEffect(() => { if (status !== "connected") setTechWatching(false); }, [status]);
@@ -46,12 +44,6 @@ export default function PublicConnect() {
   const iceServersRef = useRef([]);
   const sessionIdRef = useRef(null);
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
-
-  // Scale the <html> root font-size so Tailwind rem-based text actually grows.
-  useEffect(() => {
-    document.documentElement.style.fontSize = `${fontScale * 100}%`;
-    return () => { document.documentElement.style.fontSize = ""; };
-  }, [fontScale]);
 
   const speak = useCallback((text) => {
     try {
@@ -181,7 +173,20 @@ export default function PublicConnect() {
   };
 
   const installApp = () => {
-    window.location.href = `/instrucoes${os === "android" || os === "windows" ? `?os=${os}` : ""}`;
+    const url = { android: process.env.REACT_APP_DOWNLOAD_ANDROID_URL, windows: process.env.REACT_APP_DOWNLOAD_WINDOWS_URL }[os];
+    if (!url) {
+      window.location.href = "/instrucoes";
+      return;
+    }
+    const a = document.createElement("a");
+    a.href = url;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    toast.success("A transferência começou.", { description: "A seguir, siga os passos de instalação." });
+    speak("A transferência começou. Siga os passos no ecrã para instalar.");
+    setTimeout(() => { window.location.href = `/instrucoes?os=${os}`; }, 1500);
   };
 
   return (
@@ -192,32 +197,6 @@ export default function PublicConnect() {
           <Logo size={44} />
           <div className="hidden sm:block">
             <LisbonClock />
-          </div>
-          <div className="flex items-center gap-2" data-testid="accessibility-controls">
-            <button
-              onClick={() => setFontScale((s) => Math.max(0.9, s - 0.1))}
-              className="h-11 w-11 rounded-xl border-2 border-slate-900 flex items-center justify-center font-bold hover:bg-slate-100 transition-colors"
-              aria-label="Diminuir texto"
-              data-testid="font-decrease-button"
-            >
-              <Minus size={20} />
-            </button>
-            <button
-              onClick={() => setFontScale((s) => Math.min(1.5, s + 0.1))}
-              className="h-11 w-11 rounded-xl border-2 border-slate-900 flex items-center justify-center font-bold hover:bg-slate-100 transition-colors"
-              aria-label="Aumentar texto"
-              data-testid="font-increase-button"
-            >
-              <Plus size={20} />
-            </button>
-            <button
-              onClick={() => speak("Para pedir ajuda, carregue no grande botão azul escrito Conectar, no centro do ecrã.")}
-              className="h-11 w-11 rounded-xl border-2 border-slate-900 flex items-center justify-center hover:bg-slate-100 transition-colors"
-              aria-label="Ouvir instruções"
-              data-testid="voice-help-button"
-            >
-              <Volume2 size={20} />
-            </button>
           </div>
         </div>
         <div className="sm:hidden max-w-5xl mx-auto px-5 pb-3">
@@ -292,17 +271,17 @@ export default function PublicConnect() {
             </div>
           )}
 
-          {/* Install native app (single button for the detected system) */}
-          <div className="w-full pt-4 border-t-2 border-slate-200 mt-2">
-            <div className="text-base font-bold text-[#475569] mb-3">Ou instale a aplicação assistente</div>
-            <button
+          {status !== "connected" && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
               onClick={installApp}
               data-testid="install-app-button"
-              className="h-16 w-full rounded-2xl border-2 border-slate-900 bg-white text-slate-900 text-lg font-bold flex items-center justify-center gap-3 hover:bg-slate-100 transition-colors"
+              className="w-full max-w-md h-24 sm:h-28 rounded-3xl border-4 border-slate-900 bg-white text-slate-900 text-2xl sm:text-3xl font-extrabold flex items-center justify-center gap-4 hover:bg-slate-100 transition-colors"
             >
-              <Download size={22} /> {OS_LABEL[os]}
-            </button>
-          </div>
+              <Download size={36} /> INSTALAR APP
+            </motion.button>
+          )}
+          <div className="text-base text-[#475569] -mt-2" data-testid="install-app-os-label">{OS_LABEL[os]}</div>
 
           <div className="flex items-center gap-2 text-sm text-[#475569] mt-2">
             <ShieldCheck size={18} className="text-[#0D5C75]" />

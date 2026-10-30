@@ -107,11 +107,55 @@ class CryptoConexAccessibilityService : AccessibilityService() {
         focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
     }
 
+    /** Coordenadas: normalizadas (nx/ny 0..1, enviadas pelo ecrã do painel) ou píxeis absolutos (x/y). */
+    private fun point(cmd: JSONObject, kx: String = "nx", ky: String = "ny", px: String = "x", py: String = "y"): Pair<Int, Int> {
+        val m = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        (getSystemService(WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay.getRealMetrics(m)
+        return if (cmd.has(kx)) {
+            Pair((cmd.optDouble(kx) * m.widthPixels).toInt().coerceIn(0, m.widthPixels - 1),
+                 (cmd.optDouble(ky) * m.heightPixels).toInt().coerceIn(0, m.heightPixels - 1))
+        } else Pair(cmd.optInt(px), cmd.optInt(py))
+    }
+
+    /** Teclado do técnico: acrescenta texto, apaga ou confirma no campo em foco. */
+    private fun keyInput(cmd: JSONObject) {
+        val focused = findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
+        val current = focused.text?.toString() ?: ""
+        val newText = when {
+            cmd.has("text") -> current + cmd.optString("text")
+            cmd.optString("key") == "Backspace" -> current.dropLast(1)
+            cmd.optString("key") == "Enter" && android.os.Build.VERSION.SDK_INT >= 30 -> {
+                focused.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+                return
+            }
+            cmd.optString("key") == "Escape" -> { pressBack(); return }
+            else -> return
+        }
+        val args = android.os.Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
+        }
+        focused.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
     /** Executa um comando recebido do servidor. */
     fun handleCommand(cmd: JSONObject) {
         when (cmd.optString("type")) {
-            "click" -> tap(cmd.optInt("x"), cmd.optInt("y"))
-            "longpress" -> longPress(cmd.optInt("x"), cmd.optInt("y"))
+            "click" -> point(cmd).let { (x, y) -> tap(x, y) }
+            "doubleclick" -> point(cmd).let { (x, y) -> tap(x, y); android.os.Handler(mainLooper).postDelayed({ tap(x, y) }, 120) }
+            "longpress", "rightclick" -> point(cmd).let { (x, y) -> longPress(x, y) }
+            "drag" -> {
+                val (x1, y1) = point(cmd)
+                val (x2, y2) = point(cmd, "nx2", "ny2", "x2", "y2")
+                swipe(x1, y1, x2, y2, cmd.optLong("duration", 300).coerceIn(100, 2000))
+            }
+            "scroll" -> {
+                val (x, y) = point(cmd)
+                val h = resources.displayMetrics.heightPixels
+                val dist = (h * 0.25).toInt() * (if (cmd.optInt("delta") < 0) -1 else 1)
+                swipe(x, y, x, (y + dist).coerceIn(1, h - 1), 250)
+            }
+            "key" -> keyInput(cmd)
             "type" -> typeText(cmd.optString("text"))
             "back" -> pressBack()
             "home" -> pressHome()

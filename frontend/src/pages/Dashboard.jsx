@@ -14,6 +14,7 @@ import { createSocket } from "@/lib/socket";
 import { fmtTime } from "@/lib/datetime";
 import Logo from "@/components/Logo";
 import LisbonClock from "@/components/LisbonClock";
+import { RemoteControlLayer } from "@/components/RemoteControlLayer";
 
 const PLATFORM_ICON = { android: Smartphone, windows: Monitor, web: Globe };
 const STATUS_STYLE = {
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const socketRef = useRef(null);
   const pcRef = useRef(null);
   const videoRef = useRef(null);
+  const imgRef = useRef(null);
   const iceBuffer = useRef([]);
   const remoteSet = useRef(false);
   const rtcLive = useRef(false);
@@ -350,10 +352,17 @@ export default function Dashboard() {
             />
             {frameSrc && (
               <img
+                ref={imgRef}
                 src={frameSrc}
                 alt="Ecrã do utilizador"
                 className="absolute inset-0 w-full h-full object-contain"
                 data-testid="native-frame-view"
+              />
+            )}
+            {active && rtcState === "live" && (
+              <RemoteControlLayer
+                getMedia={() => (frameSrc ? imgRef.current : videoRef.current)}
+                onCommand={sendCommand}
               />
             )}
             {rtcState !== "live" && (

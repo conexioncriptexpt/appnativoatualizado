@@ -1,1 +1,8 @@
 .App { min-height: 100vh; }
+
+/* Remote control feedback */
+.remote-ripple { position: absolute; width: 28px; height: 28px; margin: -14px 0 0 -14px; border-radius: 9999px; pointer-events: none; border: 2px solid #818cf8; animation: remote-ripple 600ms ease-out forwards; }
+.remote-ripple-right { border-color: #f59e0b; }
+.remote-ripple-long { border-color: #34d399; border-width: 4px; }
+.remote-ripple-drag { border-color: #38bdf8; }
+@keyframes remote-ripple { from { transform: scale(0.4); opacity: 1; } to { transform: scale(1.8); opacity: 0; } }

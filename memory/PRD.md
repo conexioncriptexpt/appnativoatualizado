@@ -108,3 +108,15 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
 - P1: Assinar APK release; app Windows com janela de botão único.
 - P2: Dividir Dashboard.jsx (console) em componentes; agregação por data no overview quando os dados crescerem.
 
+
+## Iteração 9 (2026-10-31 · Novo design nas apps nativas)
+- Causa da "app não atualizada": o «Save to GitHub» publicou no ramo `conflict_301026_0954`; o `main` (usado pelos
+  builds manuais) está parado em 29/10 (difere só em .emergent/emergent.yml). O utilizador deve correr os workflows
+  nesse ramo (Actions → Run workflow → escolher o ramo) ou juntá-lo ao main.
+- Android: fundo escuro em degradê, logo «APP de Suporte Técnico» (drawable-nodpi/logo_app.png), um único botão
+  CONECTAR verde-lima (#7FD113) com moldura; depois de ligar → «CONECTADO ✓» com contorno. Ícone da app = logo
+  (mipmap-*). Tema escuro. Kotlin compilado (kotlinc) + XML validado.
+- Windows: nova janela MainForm (escura, logo, botão CONECTAR arredondado); fechar durante a ajuda esconde-a no
+  tabuleiro; ícone da app/tabuleiro = logo (Assets/app.ico, embedded); atalho no Ambiente de Trabalho na 1.ª
+  abertura (DesktopShortcut). `dotnet publish` win-x64 bem-sucedido (EXE 79 MB).
+

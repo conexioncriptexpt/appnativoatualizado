@@ -63,6 +63,11 @@ class MainActivity : AppCompatActivity() {
                 putExtra(SupportForegroundService.EXTRA_RESULT_DATA, data)
             }
             startForegroundService(svc)
+            findViewById<Button>(R.id.btnConnect).apply {
+                text = "CONECTADO ✓"
+                setTextColor(0xFF7FD113.toInt())
+                setBackgroundResource(R.drawable.btn_connected)
+            }
             Toast.makeText(this, "Conectado! Um técnico irá ajudá-lo.", Toast.LENGTH_LONG).show()
         }
     }

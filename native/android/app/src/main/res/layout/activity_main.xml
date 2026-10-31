@@ -1,36 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
-    android:background="#FAFAFD"
-    android:padding="24dp">
+    android:background="@drawable/bg_app">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Crypto Conex"
-        android:textColor="#0F172A"
-        android:textSize="26sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="48dp" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="28dp">
 
-    <Button
-        android:id="@+id/btnConnect"
-        android:layout_width="260dp"
-        android:layout_height="260dp"
-        android:text="CONECTAR"
-        android:textSize="28sp"
-        android:textStyle="bold"
-        android:textColor="#FFFFFF"
-        android:background="#0D5C75" />
+        <ImageView
+            android:id="@+id/imgLogo"
+            android:layout_width="match_parent"
+            android:layout_height="140dp"
+            android:adjustViewBounds="true"
+            android:scaleType="fitCenter"
+            android:src="@drawable/logo_app"
+            android:contentDescription="APP de Suporte Técnico"
+            android:layout_marginBottom="56dp" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Toque para pedir ajuda"
-        android:textColor="#475569"
-        android:textSize="18sp"
-        android:layout_marginTop="32dp" />
-</LinearLayout>
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:background="@drawable/btn_frame">
+
+            <Button
+                android:id="@+id/btnConnect"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:text="CONECTAR"
+                android:textSize="34sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.04"
+                android:textColor="#0B0D10"
+                android:background="@drawable/btn_connect"
+                android:stateListAnimator="@null"
+                android:contentDescription="Conectar ao técnico" />
+        </FrameLayout>
+    </LinearLayout>
+</FrameLayout>

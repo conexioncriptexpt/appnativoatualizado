@@ -1,8 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.CryptoConex" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="colorPrimary">#0D5C75</item>
-        <item name="colorPrimaryDark">#083D4E</item>
-        <item name="colorAccent">#10B981</item>
-        <item name="android:statusBarColor" tools:targetApi="l">#0D5C75</item>
+    <style name="Theme.CryptoConex" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">#7FD113</item>
+        <item name="colorPrimaryDark">#0B0D10</item>
+        <item name="colorAccent">#7FD113</item>
+        <item name="android:windowBackground">#0B0D10</item>
+        <item name="android:statusBarColor" tools:targetApi="l">#0B0D10</item>
+        <item name="android:navigationBarColor" tools:targetApi="l">#0B0D10</item>
     </style>
 </resources>

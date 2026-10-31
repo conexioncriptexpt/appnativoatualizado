@@ -127,3 +127,11 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
   setBitrate(0,6 / 1,5 / 2,5 Mbps) para arrancar já nítido + RtpSender maxBitrate 2,5 Mbps, degradação BALANCED;
   modo JPEG de recurso com qualidade 72 a 6 fps. Kotlin compilado com sucesso.
 
+
+## Iteração 11 (2026-10-31 · Apps descarregadas continuavam antigas)
+- Causa: builds automáticos no ramo `conflict_301026_0954` (código novo) publicaram corretamente, mas a seguir
+  foram corridos builds manuais no `main` (código de 29/10) que SOBRESCREVERAM as Releases com a versão antiga.
+- Correção: passo de publicação só corre em `push` ou em ramos ≠ main (main está desatualizado).
+  Versões subidas (Android versionCode 2 / 1.1, Windows 1.1.0) → o próximo Save to GitHub reconstrói as duas apps.
+- Instrução ao utilizador: fazer só "Save to GitHub" e esperar ~10 min, sem correr workflows manualmente no main.
+

@@ -37,6 +37,8 @@ jobs:
           path: native/windows/publish/CryptoConexPC.exe
 
       - name: Publish to GitHub Release (Windows)
+        # main is stale (Save to GitHub pushes to another branch): only publish from fresh pushes / other branches
+        if: github.event_name == 'push' || github.ref_name != 'main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: windows-latest

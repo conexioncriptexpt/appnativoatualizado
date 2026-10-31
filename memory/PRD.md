@@ -120,3 +120,10 @@ dele e executando ações em seu nome. Componentes: Agentes (Android/Windows) + 
   tabuleiro; ícone da app/tabuleiro = logo (Assets/app.ico, embedded); atalho no Ambiente de Trabalho na 1.ª
   abertura (DesktopShortcut). `dotnet publish` win-x64 bem-sucedido (EXE 79 MB).
 
+
+## Iteração 10 (2026-10-31 · Qualidade da imagem Android)
+- Utilizador: imagem pixelada na app Android; escolheu equilíbrio nitidez/fluidez.
+- SupportForegroundService: captura com lado maior até 1440 px (antes 60% fixo), 20 fps; WebRTC com
+  setBitrate(0,6 / 1,5 / 2,5 Mbps) para arrancar já nítido + RtpSender maxBitrate 2,5 Mbps, degradação BALANCED;
+  modo JPEG de recurso com qualidade 72 a 6 fps. Kotlin compilado com sucesso.
+

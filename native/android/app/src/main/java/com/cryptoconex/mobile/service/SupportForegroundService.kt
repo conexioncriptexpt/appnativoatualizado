@@ -42,8 +42,14 @@ class SupportForegroundService : Service() {
     @Volatile private var rtcConnected = false
 
     private var lastJpeg = 0L
-    private val jpegFps = 8
-    private val scale = 0.6
+    private val jpegFps = 6
+    private val jpegQuality = 72
+    // Equilíbrio nitidez/fluidez: lado maior até 1440 px, 20 fps, 0,6–2,5 Mbps
+    private val maxLongSide = 1440
+    private val captureFps = 20
+    private val minBitrate = 600_000
+    private val startBitrate = 1_500_000
+    private val maxBitrate = 2_500_000
 
     companion object {
         const val CHANNEL_ID = "crypto_conex_support"
@@ -75,6 +81,7 @@ class SupportForegroundService : Service() {
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
         (getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(metrics)
+        val scale = minOf(1.0, maxLongSide.toDouble() / maxOf(metrics.widthPixels, metrics.heightPixels))
         val width = (metrics.widthPixels * scale).toInt() / 2 * 2
         val height = (metrics.heightPixels * scale).toInt() / 2 * 2
 
@@ -93,7 +100,7 @@ class SupportForegroundService : Service() {
             override fun onStop() { stopSelf() }
         }).apply {
             initialize(surfaceHelper, applicationContext, source.capturerObserver)
-            startCapture(width, height, 15)
+            startCapture(width, height, captureFps)
         }
         videoTrack = factory!!.createVideoTrack("screen", source).apply {
             addSink { frame -> maybeSendJpeg(frame) }
@@ -134,7 +141,19 @@ class SupportForegroundService : Service() {
             }
         }) ?: return
         peer = pc
-        pc.addTrack(videoTrack, listOf("screen"))
+        val sender = pc.addTrack(videoTrack, listOf("screen"))
+        // Começa já com boa qualidade (evita o arranque lento e pixelado) e limita o débito máximo
+        pc.setBitrate(minBitrate, startBitrate, maxBitrate)
+        sender?.let { s ->
+            val params = s.parameters
+            params.degradationPreference = RtpParameters.DegradationPreference.BALANCED
+            params.encodings.forEach { e ->
+                e.minBitrateBps = minBitrate
+                e.maxBitrateBps = maxBitrate
+                e.maxFramerate = captureFps
+            }
+            s.parameters = params
+        }
         pc.createOffer(object : SdpAdapter() {
             override fun onCreateSuccess(desc: SessionDescription) {
                 pc.setLocalDescription(SdpAdapter(), desc)
@@ -176,7 +195,7 @@ class SupportForegroundService : Service() {
             val h = i420.height / 2 * 2
             val nv21 = toNv21(i420, w, h)
             val out = ByteArrayOutputStream()
-            YuvImage(nv21, ImageFormat.NV21, w, h, null).compressToJpeg(Rect(0, 0, w, h), 50, out)
+            YuvImage(nv21, ImageFormat.NV21, w, h, null).compressToJpeg(Rect(0, 0, w, h), jpegQuality, out)
             val b64 = Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
             SocketManager.sendScreenPacket(JSONObject().apply { put("data", b64) })
         } finally {
